@@ -98,8 +98,13 @@ class GameSession:
         cmd_id = data.get("id")
         payload = data.get("data")
 
-        if cmd_id == "GameData":
-            # Extract player role (1 or 2)
+        if cmd_id in ("GamePlayData", "GamePlayTime", "GamePlayNavigate", "WaitTime"):
+            # Pre-game intro / transition commands before the active GameSession starts
+            return
+
+        elif cmd_id == "GameData":
+            # Extract player role (1 or 2). Note: Do NOT send SaveBoard here because the server
+            # is still running the 5s Start_Game_Time timer before emitting StartGame.
             if isinstance(payload, dict) and "gamers" in payload:
                 for gamer in payload["gamers"]:
                     p_uid = gamer.get("user_id") if isinstance(gamer, dict) else ""
@@ -109,11 +114,6 @@ class GameSession:
                         print(f"[GameSession] Confirmed Player Role: Player {role}")
                         break
             self.game_logic.handle_server_command(cmd_id, payload)
-            if hasattr(self.game_logic, "should_send_initial_board") and self.game_logic.should_send_initial_board():
-                init_move = self.game_logic.get_initial_board_move()
-                print(f"[{self.game_logic.game_type} Bot] Sending initial board setup: {init_move}")
-                await self.behavior.simulate_thinking(level=self.game_logic.level, is_critical=False, legal_moves_count=1)
-                await self.emit("user_command", init_move)
 
         elif cmd_id == "UserData":
             if isinstance(payload, list):
@@ -128,10 +128,19 @@ class GameSession:
                 print(f"[GameSession] Assigned Role: Player {role}")
 
         elif cmd_id == "StartGame":
+            # Phase 1 (or match start) has officially started on the server!
             self.game_logic.handle_server_command(cmd_id, payload)
             if hasattr(self.game_logic, "should_send_initial_board") and self.game_logic.should_send_initial_board():
                 init_move = self.game_logic.get_initial_board_move()
                 print(f"[{self.game_logic.game_type} Bot] Sending initial board setup: {init_move}")
+                await self.behavior.simulate_thinking(level=self.game_logic.level, is_critical=False, legal_moves_count=1)
+                await self.emit("user_command", init_move)
+
+        elif cmd_id == "ReconnectData":
+            self.game_logic.handle_server_command(cmd_id, payload)
+            if hasattr(self.game_logic, "should_send_initial_board") and self.game_logic.should_send_initial_board():
+                init_move = self.game_logic.get_initial_board_move()
+                print(f"[{self.game_logic.game_type} Bot] Sending initial board setup on reconnect: {init_move}")
                 await self.behavior.simulate_thinking(level=self.game_logic.level, is_critical=False, legal_moves_count=1)
                 await self.emit("user_command", init_move)
 
@@ -174,7 +183,7 @@ class GameSession:
             u_id = payload.get("user_id", "") if isinstance(payload, dict) else payload
             print(f"[GameSession] User {u_id} reconnected. Match resumed.")
 
-        elif cmd_id == "FinishGame":
+        elif cmd_id in ("FinishGame", "GameFinished"):
             winner = payload.get("Winner", 0) if isinstance(payload, dict) else payload
             print("\n" + "=" * 55)
             print(f" [GameSession] Match Concluded! Final Winner: Player {winner}")
@@ -188,11 +197,6 @@ class GameSession:
         else:
             # Dispatch any game-specific event to logic handler
             self.game_logic.handle_server_command(cmd_id, payload)
-            if hasattr(self.game_logic, "should_send_initial_board") and self.game_logic.should_send_initial_board():
-                init_move = self.game_logic.get_initial_board_move()
-                print(f"[{self.game_logic.game_type} Bot] Sending initial board setup: {init_move}")
-                await self.behavior.simulate_thinking(level=self.game_logic.level, is_critical=False, legal_moves_count=1)
-                await self.emit("user_command", init_move)
 
     async def _take_turn(self):
         """Simulates human thinking time and computes & emits the next move."""

@@ -1,13 +1,11 @@
 """
 FekrBekr (Mastermind / Codebreaker) Pure Game Logic for Cafe Fekr Bots.
 
-Decoupled game engine for the 4-peg 8-color FekrBekr game:
-- Generates valid unique secret code during setup phase (SaveBoard).
-- Tracks simultaneous rounds and pin feedback (Black/2: exact, White/1: color).
-- Provides AI deduction across difficulty levels:
-  * Level 1: Easiest (Beginner / Casual Human, imperfect deductions) [DEFAULT]
-  * Level 2: Medium (Intermediate / Consistent candidate elimination)
-  * Level 3: Hard (Master / Optimal candidate solver)
+Decoupled game engine containing secret code generation, candidate pruning,
+feedback evaluation (Exact / Color-Only matches), and AI move generation across levels:
+- Level 1: Easiest (Beginner / Casual Human, makes sub-optimal guesses) [DEFAULT]
+- Level 2: Medium (Intermediate / Smart deduction, filters candidate pool)
+- Level 3: Hard (Master / Optimal candidate elimination solver)
 
 All bots default to level=1, and lobby bots are strictly level 1.
 """
@@ -18,6 +16,8 @@ from typing import Any, List, Optional, Tuple
 
 from .base_game import BaseGameLogic
 
+# 8 Valid FekrBekr Colors (1..8)
+COLORS = [1, 2, 3, 4, 5, 6, 7, 8]
 COLOR_NAMES = {
     1: "Red",
     2: "Blue",
@@ -70,8 +70,18 @@ class FekrBekrGameLogic(BaseGameLogic):
         self.reset()
 
     def _generate_secret_code(self) -> List[int]:
-        """Generates a random secret code with 4 distinct colors from 1..8."""
-        return random.sample(range(1, 9), 4)
+        """Generates a random secret code with 4 distinct colors from 1..8 (never [1, 2, 3, 4])."""
+        while True:
+            code = random.sample(range(1, 9), 4)
+            if code != [1, 2, 3, 4]:
+                return code
+
+    def _random_opening_guess(self) -> List[int]:
+        """Generates a random 4-color opening guess from 1..8 (never [1, 2, 3, 4])."""
+        while True:
+            guess = random.sample(range(1, 9), 4)
+            if guess != [1, 2, 3, 4]:
+                return guess
 
     def should_send_initial_board(self) -> bool:
         """Returns True if the bot has not yet submitted its secret code."""
@@ -79,6 +89,8 @@ class FekrBekrGameLogic(BaseGameLogic):
 
     def get_initial_board_move(self) -> dict:
         """Builds the SaveBoard payload with our secret code."""
+        if not self.secret_code or self.secret_code == [1, 2, 3, 4]:
+            self.secret_code = self._generate_secret_code()
         self.has_saved_board = True
         return {
             "id": "SaveBoard",
@@ -87,13 +99,22 @@ class FekrBekrGameLogic(BaseGameLogic):
 
     def handle_server_command(self, cmd_id: str, payload: Any) -> bool:
         """Processes incoming server events for FekrBekr."""
-        if cmd_id in ("GameData", "ReconnectData"):
+        if cmd_id == "GameData":
+            # New match session initialized on server; prepare fresh secret code for StartGame
+            self.reset()
+            return True
+
+        elif cmd_id == "StartGame":
+            self.current_round = 0
+            return True
+
+        elif cmd_id == "ReconnectData":
             if isinstance(payload, dict):
                 g_data = payload.get("game_data", payload)
                 if isinstance(g_data, dict):
                     if "current_round" in g_data:
                         self.current_round = g_data.get("current_round", 0)
-                    if g_data.get("is_player_rdy", False):
+                    if g_data.get("is_player_rdy", False) or g_data.get("is_play_phase", False):
                         self.has_saved_board = True
             return True
 
@@ -184,8 +205,8 @@ class FekrBekrGameLogic(BaseGameLogic):
         - Has a 40% chance to pick from the consistent candidate pool, and 60% chance to pick a casual random permutation.
         - Cracks the code slowly (9-12 rounds) or runs out of turns, giving the user a great chance to win.
         """
-        if self.current_round == 1:
-            return random.sample(range(1, 9), 4)
+        if self.current_round <= 1:
+            return self._random_opening_guess()
 
         # 40% chance to make an intelligent deduction from candidates
         if self.candidates and random.random() < 0.40:
@@ -202,7 +223,7 @@ class FekrBekrGameLogic(BaseGameLogic):
                 random.shuffle(new_guess)
                 return new_guess
 
-        return random.sample(range(1, 9), 4)
+        return self._random_opening_guess()
 
     def _compute_level_2(self) -> List[int]:
         """
@@ -210,8 +231,8 @@ class FekrBekrGameLogic(BaseGameLogic):
         - Strictly consistent with feedback 80% of the time.
         - Typically solves in 6-8 rounds.
         """
-        if self.current_round == 1:
-            return [1, 2, 3, 4]
+        if self.current_round <= 1:
+            return self._random_opening_guess()
 
         if self.candidates:
             if random.random() < 0.85:
@@ -219,7 +240,7 @@ class FekrBekrGameLogic(BaseGameLogic):
             else:
                 return list(self.candidates[0])
 
-        return random.sample(range(1, 9), 4)
+        return self._random_opening_guess()
 
     def _compute_level_3(self) -> List[int]:
         """
@@ -228,11 +249,11 @@ class FekrBekrGameLogic(BaseGameLogic):
         - Evaluates candidate pool to maximize information gain.
         - Cracks the code in 4-5 rounds.
         """
-        if self.current_round == 1:
-            return [1, 2, 3, 4]
+        if self.current_round <= 1:
+            return self._random_opening_guess()
 
         if not self.candidates:
-            return random.sample(range(1, 9), 4)
+            return self._random_opening_guess()
 
         if len(self.candidates) <= 2:
             return list(self.candidates[0])
