@@ -143,13 +143,15 @@ class GameSession:
                 print(f"[{self.game_logic.game_type} Bot] Sending initial board setup on reconnect: {init_move}")
                 await self.behavior.simulate_thinking(level=self.game_logic.level, is_critical=False, legal_moves_count=1)
                 await self.emit("user_command", init_move)
+            elif hasattr(self.game_logic, "should_act_on_reconnect") and self.game_logic.should_act_on_reconnect():
+                await self._take_turn()
 
         elif cmd_id == "CurrentTurn":
             my_role = self.game_logic.my_player_num or 2
-            if isinstance(payload, dict) and "current_round" in payload:
-                # Simultaneous round-based turn (e.g. FekrBekr)
+            if isinstance(payload, dict) and ("current_round" in payload or "current_turn" in payload or "dices" in payload):
+                # Simultaneous round-based turn (e.g. FekrBekr, Yatzy)
                 self.game_logic.handle_server_command(cmd_id, payload)
-                rnd = payload["current_round"]
+                rnd = payload.get("current_round", payload.get("current_turn", 1))
                 print(f"\n[GameSession] Simultaneous Turn (Round {rnd}) [My Role: Player {my_role}]")
                 await self._take_turn()
             else:
@@ -159,6 +161,12 @@ class GameSession:
                     await self._take_turn()
                 else:
                     print(f"[{self.game_logic.game_type} Bot] Opponent's turn. Waiting...")
+
+        elif cmd_id == "RollResult":
+            self.game_logic.handle_server_command(cmd_id, payload)
+            if hasattr(self.game_logic, "format_state"):
+                print(self.game_logic.format_state())
+            await self._take_turn()
 
         elif cmd_id == "PeaceSelected":
             self.game_logic.handle_server_command(cmd_id, payload)

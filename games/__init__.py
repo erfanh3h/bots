@@ -10,6 +10,7 @@ from .base_game import BaseGameLogic
 from .tictactoe import TicTacToeGameLogic
 from .chess import ChessGameLogic
 from .fekrbekr import FekrBekrGameLogic
+from .yatzy import YatzyGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -78,12 +79,18 @@ register_game(
     cls=FekrBekrGameLogic,
     aliases=["fekrbekr", "fekrobekr", "mastermind", "فکربکر", "فکر بکر"],
 )
+register_game(
+    name="Yatzy",
+    cls=YatzyGameLogic,
+    aliases=["yatzy", "yahtzee", "یاتزی", "پنج تاس"],
+)
 
 __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
     "ChessGameLogic",
     "FekrBekrGameLogic",
+    "YatzyGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",
