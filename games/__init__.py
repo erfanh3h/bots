@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Type
 from .base_game import BaseGameLogic
 from .tictactoe import TicTacToeGameLogic
 from .chess import ChessGameLogic
+from .checkers import CheckersGameLogic
 from .fekrbekr import FekrBekrGameLogic
 from .yatzy import YatzyGameLogic
 
@@ -25,7 +26,6 @@ def register_game(
     canonical = name.strip().lower()
     _GAME_REGISTRY[canonical] = cls
     _ALIAS_MAP[canonical] = canonical
-
     if aliases:
         for alias in aliases:
             _ALIAS_MAP[alias.strip().lower()] = canonical
@@ -37,7 +37,6 @@ def get_game_logic(game_type: str, level: int = 1) -> BaseGameLogic:
     Defaults to level=1 (easiest/beginner).
     """
     if not game_type:
-        # Default fallback to TicTacToe
         return TicTacToeGameLogic(level=1)
 
     key = str(game_type).strip().lower()
@@ -47,7 +46,6 @@ def get_game_logic(game_type: str, level: int = 1) -> BaseGameLogic:
         cls = _GAME_REGISTRY[canonical]
         return cls(level=level)
 
-    # Fuzzy match check for partial match in alias map
     for alias, canon in _ALIAS_MAP.items():
         if alias in key or key in alias:
             return _GAME_REGISTRY[canon](level=level)
@@ -69,16 +67,25 @@ register_game(
     cls=TicTacToeGameLogic,
     aliases=["tictactoe", "دوز", "tic", "ttt"],
 )
+
 register_game(
     name="Chess",
     cls=ChessGameLogic,
     aliases=["chess", "شطرنج", "satranj"],
 )
+
+register_game(
+    name="Checkers",
+    cls=CheckersGameLogic,
+    aliases=["checkers", "چکرز", "dama", "draughts"],
+)
+
 register_game(
     name="FekrBekr",
     cls=FekrBekrGameLogic,
     aliases=["fekrbekr", "fekrobekr", "mastermind", "فکربکر", "فکر بکر"],
 )
+
 register_game(
     name="Yatzy",
     cls=YatzyGameLogic,
@@ -89,6 +96,7 @@ __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
     "ChessGameLogic",
+    "CheckersGameLogic",
     "FekrBekrGameLogic",
     "YatzyGameLogic",
     "register_game",
