@@ -1,6 +1,5 @@
 """
 Games Registry and Factory for Cafe Fekr Bots.
-
 Provides decoupling between matchmaking modes (Lobby, Rank) and specific game engines.
 New games can be registered here and instantly used by all bot drivers.
 """
@@ -10,6 +9,7 @@ from .base_game import BaseGameLogic
 from .tictactoe import TicTacToeGameLogic
 from .chess import ChessGameLogic
 from .checkers import CheckersGameLogic
+from .four_in_row import FourInRowGameLogic
 from .fekrbekr import FekrBekrGameLogic
 from .yatzy import YatzyGameLogic
 
@@ -26,6 +26,7 @@ def register_game(
     canonical = name.strip().lower()
     _GAME_REGISTRY[canonical] = cls
     _ALIAS_MAP[canonical] = canonical
+
     if aliases:
         for alias in aliases:
             _ALIAS_MAP[alias.strip().lower()] = canonical
@@ -81,6 +82,20 @@ register_game(
 )
 
 register_game(
+    name="FourInRow",
+    cls=FourInRowGameLogic,
+    aliases=[
+        "fourinrow",
+        "four_in_row",
+        "four-in-a-row",
+        "connect4",
+        "connectfour",
+        "دوز چهارتایی",
+        "چهار در یک ردیف",
+    ],
+)
+
+register_game(
     name="FekrBekr",
     cls=FekrBekrGameLogic,
     aliases=["fekrbekr", "fekrobekr", "mastermind", "فکربکر", "فکر بکر"],
@@ -97,6 +112,7 @@ __all__ = [
     "TicTacToeGameLogic",
     "ChessGameLogic",
     "CheckersGameLogic",
+    "FourInRowGameLogic",
     "FekrBekrGameLogic",
     "YatzyGameLogic",
     "register_game",
