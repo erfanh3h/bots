@@ -173,6 +173,21 @@ class GameSession:
             if hasattr(self.game_logic, "format_state"):
                 print(self.game_logic.format_state())
 
+        elif cmd_id == "NewTurnRound":
+            my_role = self.game_logic.my_player_num or 2
+            print(f"\n[GameSession] New Turn-Round! [My Role: Player {my_role}]")
+            self.game_logic.handle_server_command(cmd_id, payload)
+            await self._take_turn()
+
+        elif cmd_id == "FinishTurnRound":
+            winner = payload.get("Winner", 0) if isinstance(payload, dict) else 0
+            p1 = payload.get("P1_selection", "") if isinstance(payload, dict) else ""
+            p2 = payload.get("P2_selection", "") if isinstance(payload, dict) else ""
+            print(f"[GameSession] Finish Turn-Round: Winner=Player {winner} (P1: {p1}, P2: {p2})")
+            self.game_logic.handle_server_command(cmd_id, payload)
+            if hasattr(self.game_logic, "format_state"):
+                print(self.game_logic.format_state())
+
         elif cmd_id == "FinishRound":
             winner = payload.get("Winner", 0) if isinstance(payload, dict) else payload
             print(f"\n>>> [GameSession] Round Finished! Winner: Player {winner} <<<\n")

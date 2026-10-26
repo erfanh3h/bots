@@ -12,6 +12,7 @@ from .checkers import CheckersGameLogic
 from .four_in_row import FourInRowGameLogic
 from .fekrbekr import FekrBekrGameLogic
 from .yatzy import YatzyGameLogic
+from .rpc import RPCGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -106,6 +107,18 @@ register_game(
     cls=YatzyGameLogic,
     aliases=["yatzy", "yahtzee", "یاتزی", "پنج تاس"],
 )
+register_game(
+    name="RPC",
+    cls=RPCGameLogic,
+    aliases=[
+        "rpc",
+        "rockpaperscissors",
+        "rock_paper_scissors",
+        "سنگ کاغذ قیچی",
+        "سنگ_کاغذ_قیچی",
+        "rps",
+    ],
+)
 
 __all__ = [
     "BaseGameLogic",
@@ -115,6 +128,7 @@ __all__ = [
     "FourInRowGameLogic",
     "FekrBekrGameLogic",
     "YatzyGameLogic",
+    "RPCGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",
