@@ -155,7 +155,8 @@ class GameSession:
                 print(f"\n[GameSession] Simultaneous Turn (Round {rnd}) [My Role: Player {my_role}]")
                 await self._take_turn()
             else:
-                turn = payload
+                turn = payload.get("turn", payload) if isinstance(payload, dict) else payload
+                self.game_logic.handle_server_command(cmd_id, payload)
                 print(f"\n[GameSession] Current Turn: Player {turn} (My Role: Player {my_role})")
                 if turn == my_role:
                     await self._take_turn()
@@ -172,6 +173,8 @@ class GameSession:
             self.game_logic.handle_server_command(cmd_id, payload)
             if hasattr(self.game_logic, "format_state"):
                 print(self.game_logic.format_state())
+            if hasattr(self.game_logic, "should_continue_turn") and self.game_logic.should_continue_turn():
+                await self._take_turn()
 
         elif cmd_id == "NewTurnRound":
             my_role = self.game_logic.my_player_num or 2

@@ -13,6 +13,7 @@ from .four_in_row import FourInRowGameLogic
 from .fekrbekr import FekrBekrGameLogic
 from .yatzy import YatzyGameLogic
 from .rpc import RPCGameLogic
+from .backgammon import BackGammonGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -119,6 +120,18 @@ register_game(
         "rps",
     ],
 )
+register_game(
+    name="BackGammon",
+    cls=BackGammonGameLogic,
+    aliases=[
+        "backgammon",
+        "back_gammon",
+        "تخته نرد",
+        "تخته‌نرد",
+        "nard",
+        "takhtenard",
+    ],
+)
 
 __all__ = [
     "BaseGameLogic",
@@ -129,6 +142,7 @@ __all__ = [
     "FekrBekrGameLogic",
     "YatzyGameLogic",
     "RPCGameLogic",
+    "BackGammonGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",
