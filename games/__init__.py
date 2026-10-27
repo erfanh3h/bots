@@ -17,6 +17,7 @@ from .rpc import RPCGameLogic
 from .backgammon import BackGammonGameLogic
 from .othello import OthelloGameLogic
 from .mill import MillGameLogic
+from .dotbox import DotBoxGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -172,6 +173,19 @@ register_game(
     ],
 )
 
+register_game(
+    name="DotBox",
+    cls=DotBoxGameLogic,
+    aliases=[
+        "dotbox",
+        "dot_box",
+        "dotsandboxes",
+        "dots_and_boxes",
+        "نقطه خط",
+        "نقطه‌خط",
+    ],
+)
+
 __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
@@ -184,6 +198,7 @@ __all__ = [
     "BackGammonGameLogic",
     "OthelloGameLogic",
     "MillGameLogic",
+    "DotBoxGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",

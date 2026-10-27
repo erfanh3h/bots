@@ -174,7 +174,7 @@ class GameSession:
             if hasattr(self.game_logic, "format_state"):
                 print(self.game_logic.format_state())
             if hasattr(self.game_logic, "should_continue_turn") and self.game_logic.should_continue_turn():
-                await self._take_turn()
+                await self._take_turn(is_continuation=True)
 
         elif cmd_id == "SelectRemovePeace":
             self.game_logic.handle_server_command(cmd_id, payload)
@@ -234,7 +234,7 @@ class GameSession:
             # Dispatch any game-specific event to logic handler
             self.game_logic.handle_server_command(cmd_id, payload)
 
-    async def _take_turn(self):
+    async def _take_turn(self, is_continuation: bool = False):
         """Simulates human thinking time and computes & emits the next move."""
         if not self.sio or not self.sio.connected:
             return
@@ -243,15 +243,17 @@ class GameSession:
         if not legal_moves:
             return
 
-        is_critical = self.game_logic.is_critical_turn()
-
-        # Human-like delay simulation
-        await self.behavior.simulate_thinking(
-            level=self.game_logic.level,
-            is_critical=is_critical,
-            legal_moves_count=len(legal_moves),
-            bot_label=f"{self.game_logic.game_type} Bot (Lvl {self.game_logic.level})",
-        )
+        if is_continuation:
+            # Rapid human follow-up click during bonus/multi-step turns (DotBox chains, Backgammon dice)
+            await asyncio.sleep(0.55)
+        else:
+            is_critical = self.game_logic.is_critical_turn()
+            await self.behavior.simulate_thinking(
+                level=self.game_logic.level,
+                is_critical=is_critical,
+                legal_moves_count=len(legal_moves),
+                bot_label=f"{self.game_logic.game_type} Bot (Lvl {self.game_logic.level})",
+            )
 
         # Decide move using pure game logic
         move = self.game_logic.compute_next_move()
