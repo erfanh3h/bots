@@ -154,12 +154,6 @@ class GameSession:
                 rnd = payload.get("current_round", payload.get("current_turn", 1))
                 print(f"\n[GameSession] Simultaneous Turn (Round {rnd}) [My Role: Player {my_role}]")
                 await self._take_turn()
-            elif isinstance(payload, list):
-                # Simultaneous array-payload round (e.g. Ten / Make 10: [n1, n2, n3, n4])
-                self.game_logic.handle_server_command(cmd_id, payload)
-                if hasattr(self.game_logic, "format_state"):
-                    print(self.game_logic.format_state())
-                await self._take_turn()
             else:
                 turn = payload.get("turn", payload) if isinstance(payload, dict) else payload
                 self.game_logic.handle_server_command(cmd_id, payload)
@@ -249,23 +243,9 @@ class GameSession:
         if not legal_moves:
             return
 
-        expected_round = getattr(self.game_logic, "current_round", 1)
-
         if is_continuation:
             # Rapid human follow-up click during bonus/multi-step turns (DotBox chains, Backgammon dice)
             await asyncio.sleep(0.55)
-        elif hasattr(self.game_logic, "get_custom_thinking_delay"):
-            delay = float(self.game_logic.get_custom_thinking_delay())
-            print(f"[{self.game_logic.game_type} Bot (Lvl {self.game_logic.level})] Solving puzzle (~{delay:.1f}s)...")
-            elapsed = 0.0
-            step = 0.25
-            while elapsed < delay:
-                if not self.is_active or not self.sio or not self.sio.connected:
-                    return
-                if hasattr(self.game_logic, "is_round_still_active") and not self.game_logic.is_round_still_active(expected_round):
-                    return
-                await asyncio.sleep(min(step, delay - elapsed))
-                elapsed += step
         else:
             is_critical = self.game_logic.is_critical_turn()
             await self.behavior.simulate_thinking(
@@ -274,9 +254,6 @@ class GameSession:
                 legal_moves_count=len(legal_moves),
                 bot_label=f"{self.game_logic.game_type} Bot (Lvl {self.game_logic.level})",
             )
-
-        if hasattr(self.game_logic, "is_round_still_active") and not self.game_logic.is_round_still_active(expected_round):
-            return
 
         # Decide move using pure game logic
         move = self.game_logic.compute_next_move()
