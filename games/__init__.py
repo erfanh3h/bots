@@ -18,6 +18,7 @@ from .backgammon import BackGammonGameLogic
 from .othello import OthelloGameLogic
 from .mill import MillGameLogic
 from .dotbox import DotBoxGameLogic
+from .mnumbers import MNumbersGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -186,6 +187,19 @@ register_game(
     ],
 )
 
+register_game(
+    name="MNumbers",
+    cls=MNumbersGameLogic,
+    aliases=[
+        "mnumbers",
+        "m_numbers",
+        "matchnumbers",
+        "match_numbers",
+        "کشف اعداد",
+        "کشف‌اعداد",
+    ],
+)
+
 __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
@@ -199,6 +213,7 @@ __all__ = [
     "OthelloGameLogic",
     "MillGameLogic",
     "DotBoxGameLogic",
+    "MNumbersGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",
