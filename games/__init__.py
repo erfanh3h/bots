@@ -19,6 +19,7 @@ from .othello import OthelloGameLogic
 from .mill import MillGameLogic
 from .dotbox import DotBoxGameLogic
 from .mnumbers import MNumbersGameLogic
+from .ten import TenGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -200,6 +201,21 @@ register_game(
     ],
 )
 
+register_game(
+    name="Ten",
+    cls=TenGameLogic,
+    aliases=[
+        "ten",
+        "make10",
+        "make_10",
+        "4=10",
+        "fourequalsten",
+        "ده بساز",
+        "ده‌بساز",
+        "10",
+    ],
+)
+
 __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
@@ -214,6 +230,7 @@ __all__ = [
     "MillGameLogic",
     "DotBoxGameLogic",
     "MNumbersGameLogic",
+    "TenGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",
