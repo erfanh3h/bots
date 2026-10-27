@@ -16,6 +16,7 @@ from .yatzy import YatzyGameLogic
 from .rpc import RPCGameLogic
 from .backgammon import BackGammonGameLogic
 from .othello import OthelloGameLogic
+from .mill import MillGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -157,6 +158,20 @@ register_game(
     ],
 )
 
+register_game(
+    name="Mill",
+    cls=MillGameLogic,
+    aliases=[
+        "mill",
+        "nine_mens_morris",
+        "ninemensmorris",
+        "morris",
+        "دوز نه تایی",
+        "دوز نه‌تایی",
+        "دوز 9 تایی",
+    ],
+)
+
 __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
@@ -168,6 +183,7 @@ __all__ = [
     "RPCGameLogic",
     "BackGammonGameLogic",
     "OthelloGameLogic",
+    "MillGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",

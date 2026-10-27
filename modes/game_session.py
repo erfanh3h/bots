@@ -169,12 +169,22 @@ class GameSession:
                 print(self.game_logic.format_state())
             await self._take_turn()
 
-        elif cmd_id == "PeaceSelected":
+        elif cmd_id in ("PeaceSelected", "PeaceSwaped", "PeaceRemoved"):
             self.game_logic.handle_server_command(cmd_id, payload)
             if hasattr(self.game_logic, "format_state"):
                 print(self.game_logic.format_state())
             if hasattr(self.game_logic, "should_continue_turn") and self.game_logic.should_continue_turn():
                 await self._take_turn()
+
+        elif cmd_id == "SelectRemovePeace":
+            self.game_logic.handle_server_command(cmd_id, payload)
+            my_role = self.game_logic.my_player_num or 2
+            remover = payload.get("remover_id", payload) if isinstance(payload, dict) else payload
+            if int(remover) == my_role:
+                print(f"\n[GameSession] Mill Formed! Bot (Player {my_role}) selecting opponent piece to capture...")
+                await self._take_turn()
+            else:
+                print(f"\n[GameSession] Opponent (Player {remover}) formed a Mill and is capturing a piece...")
 
         elif cmd_id == "NewTurnRound":
             my_role = self.game_logic.my_player_num or 2
