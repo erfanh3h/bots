@@ -1,5 +1,6 @@
 """
 Games Registry and Factory for Cafe Fekr Bots.
+
 Provides decoupling between matchmaking modes (Lobby, Rank) and specific game engines.
 New games can be registered here and instantly used by all bot drivers.
 """
@@ -14,6 +15,7 @@ from .fekrbekr import FekrBekrGameLogic
 from .yatzy import YatzyGameLogic
 from .rpc import RPCGameLogic
 from .backgammon import BackGammonGameLogic
+from .othello import OthelloGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -28,7 +30,6 @@ def register_game(
     canonical = name.strip().lower()
     _GAME_REGISTRY[canonical] = cls
     _ALIAS_MAP[canonical] = canonical
-
     if aliases:
         for alias in aliases:
             _ALIAS_MAP[alias.strip().lower()] = canonical
@@ -100,14 +101,25 @@ register_game(
 register_game(
     name="FekrBekr",
     cls=FekrBekrGameLogic,
-    aliases=["fekrbekr", "fekrobekr", "mastermind", "فکربکر", "فکر بکر"],
+    aliases=[
+        "fekrbekr",
+        "fekr_bekr",
+        "mastermind",
+        "فکر بکر",
+        "فکربکر",
+    ],
 )
 
 register_game(
     name="Yatzy",
     cls=YatzyGameLogic,
-    aliases=["yatzy", "yahtzee", "یاتزی", "پنج تاس"],
+    aliases=[
+        "yatzy",
+        "yahtzee",
+        "یاتزی",
+    ],
 )
+
 register_game(
     name="RPC",
     cls=RPCGameLogic,
@@ -120,6 +132,7 @@ register_game(
         "rps",
     ],
 )
+
 register_game(
     name="BackGammon",
     cls=BackGammonGameLogic,
@@ -133,6 +146,17 @@ register_game(
     ],
 )
 
+register_game(
+    name="Othello",
+    cls=OthelloGameLogic,
+    aliases=[
+        "othello",
+        "reversi",
+        "اتللو",
+        "اوتلو",
+    ],
+)
+
 __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
@@ -143,6 +167,7 @@ __all__ = [
     "YatzyGameLogic",
     "RPCGameLogic",
     "BackGammonGameLogic",
+    "OthelloGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",
