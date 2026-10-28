@@ -41,6 +41,7 @@ class GameSession:
         self.on_finished_callback = on_finished_callback
 
         self.sio: Optional[socketio.AsyncClient] = None
+        self._simultaneous_task: Optional[asyncio.Task] = None
         self.is_active = False
 
     async def start(self):
@@ -135,6 +136,9 @@ class GameSession:
                 print(f"[{self.game_logic.game_type} Bot] Sending initial board setup: {init_move}")
                 await self.behavior.simulate_thinking(level=self.game_logic.level, is_critical=False, legal_moves_count=1)
                 await self.emit("user_command", init_move)
+            elif getattr(self.game_logic, "is_simultaneous", False):
+                if self._simultaneous_task is None or self._simultaneous_task.done():
+                    self._simultaneous_task = asyncio.create_task(self._simultaneous_play_loop())
 
         elif cmd_id == "ReconnectData":
             self.game_logic.handle_server_command(cmd_id, payload)
@@ -145,6 +149,9 @@ class GameSession:
                 await self.emit("user_command", init_move)
             elif hasattr(self.game_logic, "should_act_on_reconnect") and self.game_logic.should_act_on_reconnect():
                 await self._take_turn()
+            elif getattr(self.game_logic, "is_simultaneous", False):
+                if self._simultaneous_task is None or self._simultaneous_task.done():
+                    self._simultaneous_task = asyncio.create_task(self._simultaneous_play_loop())
 
         elif cmd_id == "CurrentTurn":
             my_role = self.game_logic.my_player_num or 2
@@ -268,8 +275,22 @@ class GameSession:
         print(f"[{self.game_logic.game_type} Bot] Playing move -> {move} (Command: {cmd_id})")
         await self.emit("user_command", {"id": cmd_id, "data": cmd_data})
 
+    async def _simultaneous_play_loop(self):
+        """Periodically evaluates and plays moves for simultaneous games (e.g. Sudoku)."""
+        import random
+        await asyncio.sleep(random.uniform(3.5, 6.0))
+        while self.is_active and self.sio and self.sio.connected:
+            legal_moves = self.game_logic.get_legal_moves()
+            if not legal_moves:
+                print(f"[{self.game_logic.game_type} Bot] No more legal moves available.")
+                break
+            await self._take_turn()
+            await asyncio.sleep(random.uniform(5.0, 9.0))
+
     async def disconnect(self):
         """Disconnects socket client."""
+        if self._simultaneous_task and not self._simultaneous_task.done():
+            self._simultaneous_task.cancel()
         if self.sio and self.sio.connected:
             try:
                 await self.sio.disconnect()

@@ -20,6 +20,7 @@ from .mill import MillGameLogic
 from .dotbox import DotBoxGameLogic
 from .mnumbers import MNumbersGameLogic
 from .battleship import BattleShipGameLogic
+from .sudoku import SudokuGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -213,7 +214,17 @@ register_game(
     ],
 )
 
+register_game(
+    name="Sudoku",
+    cls=SudokuGameLogic,
+    aliases=[
+        "sudoku",
+        "سودوکو",
+    ],
+)
+
 __all__ = [
+    "SudokuGameLogic",
     "BaseGameLogic",
     "TicTacToeGameLogic",
     "ChessGameLogic",
