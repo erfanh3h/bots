@@ -19,6 +19,7 @@ from .othello import OthelloGameLogic
 from .mill import MillGameLogic
 from .dotbox import DotBoxGameLogic
 from .mnumbers import MNumbersGameLogic
+from .battleship import BattleShipGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -200,6 +201,18 @@ register_game(
     ],
 )
 
+register_game(
+    name="BattleShip",
+    cls=BattleShipGameLogic,
+    aliases=[
+        "battleship",
+        "battle_ship",
+        "نبرد کشتی",
+        "کشتی جنگی",
+        "نبردکشتی",
+    ],
+)
+
 __all__ = [
     "BaseGameLogic",
     "TicTacToeGameLogic",
@@ -214,6 +227,7 @@ __all__ = [
     "MillGameLogic",
     "DotBoxGameLogic",
     "MNumbersGameLogic",
+    "BattleShipGameLogic",
     "register_game",
     "get_game_logic",
     "list_supported_games",
