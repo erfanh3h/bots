@@ -87,15 +87,16 @@ class BoxFourGameLogic(BaseGameLogic):
 
     def get_legal_moves(
         self,
-        gamer_id: int,
+        gamer_id: Optional[int] = None,
         owners_state: Optional[List[List[int]]] = None,
     ) -> List[Tuple[int, int]]:
-        """Returns all `(c_index, r_index)` coordinates currently owned by `gamer_id`."""
+        """Returns all `(c_index, r_index)` coordinates currently owned by `gamer_id` (defaults to `self.my_player_num`)."""
+        target_id = gamer_id if gamer_id is not None else (self.my_player_num or 1)
         own = owners_state if owners_state is not None else self.owners
         legal: List[Tuple[int, int]] = []
         for c in range(5):
             for r in range(5):
-                if own[c][r] == gamer_id:
+                if own[c][r] == target_id:
                     legal.append((c, r))
         return legal
 
@@ -211,6 +212,16 @@ class BoxFourGameLogic(BaseGameLogic):
     def get_available_moves_count(self) -> int:
         my_id = self.my_player_num or 1
         return len(self.get_legal_moves(my_id))
+
+    def should_act_on_reconnect(self) -> bool:
+        return self.current_turn == (self.my_player_num or 2)
+
+    def is_critical_turn(self) -> bool:
+        my_id = self.my_player_num or 1
+        for c, r in self.get_legal_moves(my_id):
+            if self.values[c][r] >= 3:
+                return True
+        return False
 
     def is_move_obvious(self) -> bool:
         my_id = self.my_player_num or 1
