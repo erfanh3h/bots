@@ -141,6 +141,7 @@ class YinshGameLogic(BaseGameLogic):
         self.disk_count: int = 51
         self.last_selected_piece_id: int = -1
         self.current_turn: int = 1
+        self.current_remover: int = 0
         self._planned_target_id: Optional[int] = None
 
     def reset(self):
@@ -154,6 +155,7 @@ class YinshGameLogic(BaseGameLogic):
         self.disk_count = 51
         self.last_selected_piece_id = -1
         self.current_turn = 1
+        self.current_remover = 0
         self._planned_target_id = None
 
     def _sync_board_array(self, board_list: List[Any]):
@@ -183,6 +185,7 @@ class YinshGameLogic(BaseGameLogic):
                     self.disk_count = int(g_data.get("disk_count", 51))
                     self.last_selected_piece_id = int(g_data.get("last_selected_piece_id", -1))
                     self.current_turn = int(g_data.get("current_turn", 1))
+                    self.current_remover = int(g_data.get("current_remover", 0))
                     if "board" in g_data:
                         self._sync_board_array(g_data["board"])
             return True
@@ -194,6 +197,7 @@ class YinshGameLogic(BaseGameLogic):
                     self.is_setup_ring_phase = bool(payload["is_setup_ring_phase"])
             else:
                 self.current_turn = int(payload)
+            self.current_remover = 0
             self.last_selected_piece_id = -1
             self._planned_target_id = None
             return True
@@ -251,18 +255,22 @@ class YinshGameLogic(BaseGameLogic):
             self._planned_target_id = None
             return True
 
+        if cmd_id == "SelectRemovePeace":
+            rem = payload.get("remover_id", payload) if isinstance(payload, dict) else payload
+            self.current_remover = int(rem) if rem is not None else 0
+            self.last_selected_piece_id = -1
+            self._planned_target_id = None
+            return True
+
         if cmd_id == "WinHappened":
             if isinstance(payload, dict):
                 win_data = payload.get("win_data", [])
                 rem_rings = payload.get("removed_rings", [])
+                fallback_gid = int(payload.get("gamer_id", 1))
                 if isinstance(win_data, list):
                     for item in win_data:
                         if isinstance(item, dict):
-                            gid = int(item.get("gamer_id", 1))
-                            if gid == 1:
-                                self.player1_score += 1
-                            else:
-                                self.player2_score += 1
+                            fallback_gid = int(item.get("gamer_id", fallback_gid))
                             for pid in item.get("data", []):
                                 idx = int(pid)
                                 if 0 <= idx < self.NUM_SPOTS:
@@ -271,7 +279,15 @@ class YinshGameLogic(BaseGameLogic):
                 if isinstance(rem_rings, list):
                     for r_pid in rem_rings:
                         if r_pid is not None and 0 <= int(r_pid) < self.NUM_SPOTS:
-                            self.ring_owners[int(r_pid)] = None
+                            r_idx = int(r_pid)
+                            r_owner = self.ring_owners[r_idx] or fallback_gid
+                            self.ring_owners[r_idx] = None
+                            if r_owner == 1:
+                                self.player1_score += 1
+                            else:
+                                self.player2_score += 1
+                if "current_remover" in payload:
+                    self.current_remover = int(payload["current_remover"])
             return True
 
         return False
@@ -345,6 +361,8 @@ class YinshGameLogic(BaseGameLogic):
 
     def get_legal_moves(self, gamer_id: Optional[int] = None) -> List[Any]:
         player = gamer_id if gamer_id is not None else (self.my_player_num or 2)
+        if self.current_remover == player:
+            return [i for i in range(self.NUM_SPOTS) if self.ring_owners[i] == player]
         if self.is_setup_ring_phase:
             return [
                 i
@@ -432,6 +450,19 @@ class YinshGameLogic(BaseGameLogic):
         if not legal:
             return None
 
+        # Ring Removal Selection Phase (after forming 5-in-a-row)
+        if self.current_remover == my_id:
+            if self.level == 1:
+                return ("SelectRemovePeace", random.choice(legal))
+            # Prefer removing our least mobile / outer-edge ring so our strongest rings remain on the board
+            scored_rings = []
+            for r_id in legal:
+                mobility = len(self.get_valid_targets_for_ring(r_id))
+                center_bonus = 2 if r_id in CENTER_SPOTS else 0
+                scored_rings.append((mobility + center_bonus, r_id))
+            scored_rings.sort(key=lambda x: x[0])
+            return ("SelectRemovePeace", scored_rings[0][1])
+
         # Phase 1: Setup Ring Placement
         if self.is_setup_ring_phase:
             center_legal = [pid for pid in legal if pid in CENTER_SPOTS]
@@ -495,6 +526,10 @@ class YinshGameLogic(BaseGameLogic):
                 return {"id": "SelectPeace", "data": int(val)}
             if cmd_name == "MoveRing":
                 return {"id": "MoveRing", "data": {"target_id": int(val)}}
+            if cmd_name == "SelectRemovePeace":
+                return {"id": "SelectRemovePeace", "data": int(val)}
+        if self.current_remover == (self.my_player_num or 2):
+            return {"id": "SelectRemovePeace", "data": int(move)}
         if self.is_setup_ring_phase:
             return {"id": "SubmitRing", "data": int(move)}
         if self.last_selected_piece_id == -1:
