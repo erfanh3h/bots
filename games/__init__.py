@@ -23,6 +23,7 @@ from .battleship import BattleShipGameLogic
 from .sudoku import SudokuGameLogic
 from .msweeper import MSweeperGameLogic
 from .box_four import BoxFourGameLogic
+from .yinsh import YinshGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -249,7 +250,17 @@ register_game(
     ],
 )
 
+register_game(
+    name="Yinsh",
+    cls=YinshGameLogic,
+    aliases=[
+        "yinsh",
+        "یینش",
+    ],
+)
+
 __all__ = [
+    "YinshGameLogic",
     "BoxFourGameLogic",
     "MSweeperGameLogic",
     "SudokuGameLogic",
