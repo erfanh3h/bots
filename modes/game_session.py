@@ -141,6 +141,14 @@ class GameSession:
                     self._simultaneous_task = asyncio.create_task(self._simultaneous_play_loop())
 
         elif cmd_id == "ReconnectData":
+            if isinstance(payload, dict) and "gamers" in payload and isinstance(payload["gamers"], list):
+                for gamer in payload["gamers"]:
+                    p_uid = gamer.get("user_id") if isinstance(gamer, dict) else ""
+                    if p_uid == self.my_user_id or BOT_PHONE in str(gamer):
+                        role = gamer.get("gamer_id", 2)
+                        self.game_logic.set_player_role(role)
+                        print(f"[GameSession] Confirmed Player Role on Reconnect: Player {role}")
+                        break
             self.game_logic.handle_server_command(cmd_id, payload)
             if hasattr(self.game_logic, "should_send_initial_board") and self.game_logic.should_send_initial_board():
                 init_move = self.game_logic.get_initial_board_move()
