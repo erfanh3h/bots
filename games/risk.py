@@ -1,6 +1,5 @@
 """
 Risk Strike AI Bot Game Logic for Cafe Fekr.
-
 Implements full tactical decision-making for the tabletop game Risk Strike:
 - Card drawing strategy (Continent vs Strategy vs Mixed)
 - Strategy / Tactic card usage (Backup, Expand, Destroy, Bomb, Spy, Canon, Cancel, Army)
@@ -10,7 +9,11 @@ Implements full tactical decision-making for the tabletop game Risk Strike:
 
 import random
 from typing import Any, Dict, List, Optional
-from .base_game import BaseGameLogic
+
+try:
+    from Bots.games.base_game import BaseGameLogic
+except ImportError:
+    from games.base_game import BaseGameLogic
 
 
 CONTINENT_ADJACENCY: Dict[str, List[str]] = {
@@ -37,6 +40,7 @@ class RiskGameLogic(BaseGameLogic):
     def reset(self):
         self.current_turn: int = 1
         self.game_state: str = "StartGame"
+        self.is_game_finished: bool = False
         self.players_data: List[Dict[str, Any]] = []
         self.active_player_indexes: List[int] = [1, 2]
         self.my_continents: Dict[str, int] = {c: 0 for c in ALL_CONTINENTS}
@@ -45,6 +49,8 @@ class RiskGameLogic(BaseGameLogic):
         self.free_tokens: List[str] = list(ALL_CONTINENTS)
         self.active_attack: Optional[Dict[str, Any]] = None
         self.ignore_adjacency: bool = False
+        self.attacks_this_turn: int = 0
+        self.canon_played_this_turn: bool = False
         self._pending_action: bool = False
 
     def _sync_my_private(self, priv: Dict[str, Any]):
@@ -88,15 +94,33 @@ class RiskGameLogic(BaseGameLogic):
         my_role = self.my_player_num or 2
         self._pending_action = False
 
-        if cmd_id in ("GameData", "ReconnectData") and isinstance(payload, dict):
+        if cmd_id == "GameData" and isinstance(payload, dict):
             gd = payload.get("game_data", payload)
             self._sync_game_data(gd)
-            if self.current_turn == my_role and self.game_state in ("Draw", "StartGame", "SelectAction"):
-                self._pending_action = True
+            return True
+
+        if cmd_id == "ReconnectData" and isinstance(payload, dict):
+            gd = payload.get("game_data", payload)
+            self._sync_game_data(gd)
+            if isinstance(payload.get("user_data"), dict):
+                self._sync_my_private(payload["user_data"])
+            if not self.is_game_finished:
+                if self.game_state == "DefenderArmy" and self.active_attack and int(self.active_attack.get("defender_id", 0)) == my_role:
+                    self._pending_action = True
+                elif self.current_turn == my_role and self.game_state in ("Draw", "SelectAction", "AttackerArmy"):
+                    self._pending_action = True
             return True
 
         if cmd_id == "UserData" and isinstance(payload, dict):
             self._sync_my_private(payload)
+            return True
+
+        if cmd_id == "StartGame":
+            if isinstance(payload, dict):
+                if "turn" in payload:
+                    self.current_turn = int(payload["turn"])
+                if "game_state" in payload:
+                    self.game_state = str(payload["game_state"])
             return True
 
         if cmd_id in ("DrawCard", "CurrentTurn"):
@@ -107,13 +131,14 @@ class RiskGameLogic(BaseGameLogic):
                 self.current_turn = int(payload)
                 self.game_state = "Draw"
             self.ignore_adjacency = False
+            self.attacks_this_turn = 0
+            self.canon_played_this_turn = False
             self.active_attack = None
-            if self.current_turn == my_role:
+            if not self.is_game_finished and self.current_turn == my_role:
                 self._pending_action = True
             return True
 
         if cmd_id == "DrawResult" and isinstance(payload, dict):
-            gamer_id = int(payload.get("gamer_id", 0))
             new_data = payload.get("new_data")
             if isinstance(new_data, dict):
                 self._update_player_global(new_data)
@@ -121,14 +146,15 @@ class RiskGameLogic(BaseGameLogic):
                 self.game_state = str(payload["game_state"])
             else:
                 self.game_state = "SelectAction"
-            if gamer_id == my_role and self.current_turn == my_role:
-                self._pending_action = True
+            # Wait for DrawResultPrivate so our private hand is synced before acting
             return True
 
         if cmd_id == "DrawResultPrivate" and isinstance(payload, dict):
             if isinstance(payload.get("new_user_data"), dict):
                 self._sync_my_private(payload["new_user_data"])
-            if self.current_turn == my_role and self.game_state in ("DrawResult", "SelectAction"):
+            draw_type = int(payload.get("draw_type", 3))
+            # Only continue turn on start-of-turn draw (draw_type 1, 2, or 3), NEVER on end-of-turn pass draw (draw_type 4)
+            if draw_type in (1, 2, 3) and not self.is_game_finished and self.current_turn == my_role:
                 self.game_state = "SelectAction"
                 self._pending_action = True
             return True
@@ -145,8 +171,10 @@ class RiskGameLogic(BaseGameLogic):
                 "source_continent": src_c,
                 "target_continent": tgt_c,
             }
-            if atk_id == my_role and self.game_state in ("DeclareAttack", "AttackerArmy"):
-                self._pending_action = True
+            if atk_id == my_role:
+                self.attacks_this_turn += 1
+                if self.game_state in ("DeclareAttack", "AttackerArmy"):
+                    self._pending_action = True
             elif tgt_id == my_role and self.game_state == "DefenderArmy":
                 self._pending_action = True
             return True
@@ -156,7 +184,7 @@ class RiskGameLogic(BaseGameLogic):
             self.game_state = str(payload.get("game_state", "DefenderArmy"))
             if self.active_attack is not None:
                 self.active_attack["attacker_army"] = int(payload.get("count", 0))
-            if tgt_id == my_role:
+            if not self.is_game_finished and tgt_id == my_role:
                 self._pending_action = True
             return True
 
@@ -170,25 +198,54 @@ class RiskGameLogic(BaseGameLogic):
                                 self.my_continents[c] = int(p["continents"].get(c, 0))
                         if isinstance(p.get("tokens"), list):
                             self.my_tokens = [str(t) for t in p["tokens"]]
+            if isinstance(payload.get("tokens"), list):
+                self.free_tokens = [str(t) for t in payload["tokens"]]
             self.active_attack = None
+            if payload.get("is_game_finished", False):
+                self.is_game_finished = True
+                self.game_state = "GameFinished"
+                self._pending_action = False
+                return True
             self.game_state = str(payload.get("game_state", "SelectAction"))
-            if not payload.get("is_game_finished", False) and self.current_turn == my_role and cmd_id == "Attack":
+            # Note: bot_controller.py and game_session.py automatically invoke _take_turn() on RollResult
+            if cmd_id == "Attack" and self.current_turn == my_role:
                 self._pending_action = True
             return True
 
         if cmd_id == "StrategyResult" and isinstance(payload, dict):
             if isinstance(payload.get("players_data"), list):
                 self.players_data = payload["players_data"]
+                for p in self.players_data:
+                    if isinstance(p, dict) and int(p.get("index", 0)) == my_role:
+                        if isinstance(p.get("continents"), dict):
+                            for c in ALL_CONTINENTS:
+                                self.my_continents[c] = int(p["continents"].get(c, 0))
+                        if isinstance(p.get("tokens"), list):
+                            self.my_tokens = [str(t) for t in p["tokens"]]
+            if isinstance(payload.get("tokens"), list):
+                self.free_tokens = [str(t) for t in payload["tokens"]]
             if payload.get("ignore_adjacency") and int(payload.get("gamer_id", 0)) == my_role:
                 self.ignore_adjacency = True
+            if payload.get("strategy") == "Canon" and int(payload.get("gamer_id", 0)) == my_role:
+                self.canon_played_this_turn = True
             self.game_state = str(payload.get("game_state", "SelectAction"))
-            if self.current_turn == my_role and self.game_state == "SelectAction":
+            if payload.get("attack_canceled"):
+                self.active_attack = None
+                return True
+            if not self.is_game_finished and self.current_turn == my_role and self.game_state == "SelectAction":
                 self._pending_action = True
             return True
 
         if cmd_id == "PassTurn" and isinstance(payload, dict):
             if isinstance(payload.get("new_data"), dict):
                 self._update_player_global(payload["new_data"])
+            self._pending_action = False
+            return True
+
+        if cmd_id in ("FinishGame", "GameFinished"):
+            self.is_game_finished = True
+            self.game_state = "GameFinished"
+            self._pending_action = False
             return True
 
         return False
@@ -203,43 +260,59 @@ class RiskGameLogic(BaseGameLogic):
                 break
         if not replaced and idx > 0:
             self.players_data.append(p_dict)
-        if idx == (self.my_player_num or 2):
-            if isinstance(p_dict.get("continents"), dict):
-                for c in ALL_CONTINENTS:
-                    self.my_continents[c] = int(p_dict["continents"].get(c, 0))
-            if isinstance(p_dict.get("tokens"), list):
-                self.my_tokens = [str(t) for t in p_dict["tokens"]]
 
     def should_continue_turn(self) -> bool:
-        return self._pending_action
+        return bool(self._pending_action) and not self.is_game_finished
 
     def should_act_on_reconnect(self) -> bool:
-        my_role = self.my_player_num or 2
-        if self.active_attack and int(self.active_attack.get("defender_id", 0)) == my_role and self.game_state == "DefenderArmy":
-            return True
-        return self.current_turn == my_role
+        return bool(self._pending_action) and not self.is_game_finished
 
     def _count_my_strategy(self, name: str) -> int:
         return sum(1 for s in self.my_strategies if s.lower() == name.lower())
 
-    def get_legal_moves(self) -> List[Dict[str, Any]]:
+    def _get_active_opponents(self) -> List[Dict[str, Any]]:
+        my_role = self.my_player_num or 2
+        opps = []
+        for p in self.players_data:
+            if not isinstance(p, dict):
+                continue
+            opp_id = int(p.get("index", 0))
+            if opp_id != my_role and opp_id in self.active_player_indexes:
+                opps.append(p)
+        opps.sort(
+            key=lambda p: (
+                len(p.get("tokens", [])) if isinstance(p.get("tokens"), list) else 0,
+                sum(int(v) for v in (p.get("continents") or {}).values()) if isinstance(p.get("continents"), dict) else 0,
+                int(p.get("strategies_count", 0)),
+            ),
+            reverse=True,
+        )
+        return opps
+
+    def get_legal_moves(self) -> List[Any]:
+        if self.is_game_finished:
+            return []
         my_role = self.my_player_num or 2
 
-        # 1. Defense response when an opponent attacks the Bot
-        if self.game_state == "DefenderArmy" and self.active_attack and int(self.active_attack.get("defender_id", 0)) == my_role:
-            moves: List[Dict[str, Any]] = []
-            army_cnt = self._count_my_strategy("Army")
-            for c in range(0, min(3, army_cnt) + 1):
-                moves.append({"action": "defender_army", "count": c})
-            if self._count_my_strategy("Cancel") > 0:
-                moves.append({"action": "defender_cancel"})
-            return moves
+        # 1. Defender Response Phase (even when current_turn != my_role)
+        if self.game_state == "DefenderArmy" and self.active_attack:
+            def_id = int(self.active_attack.get("defender_id", 0))
+            if def_id == my_role:
+                tgt_c = str(self.active_attack.get("target_continent", "Asia"))
+                def_cards = max(1, int(self.my_continents.get(tgt_c, 1)))
+                base_def_dice = min(2, def_cards)
+                max_extra = max(0, 4 - base_def_dice)
+                army_cnt = self._count_my_strategy("Army")
+                moves = [{"action": "defender_army", "count": c} for c in range(0, min(max_extra, army_cnt) + 1)]
+                if self._count_my_strategy("Cancel") > 0:
+                    moves.append({"action": "defender_cancel"})
+                return moves
+            return []
 
-        # All other states require it to be the Bot's turn
         if self.current_turn != my_role:
             return []
 
-        # 2. Draw Phase: choose draw_type 1 (2 Continents), 2 (2 Strategies), or 3 (1 Continent + 1 Strategy)
+        # 2. Start-of-Turn Draw Phase: Choose draw_type 1 (2 Continents), 2 (2 Strategies), or 3 (1 Continent + 1 Strategy)
         if self.game_state in ("StartGame", "Draw"):
             return [
                 {"action": "draw", "draw_type": 1},
@@ -249,40 +322,82 @@ class RiskGameLogic(BaseGameLogic):
 
         # 3. Attacker Army Commitment Phase
         if self.game_state in ("DeclareAttack", "AttackerArmy") and self.active_attack:
+            src_c = str(self.active_attack.get("source_continent", "Asia"))
+            atk_cards = max(1, int(self.my_continents.get(src_c, 1)))
+            base_atk_dice = min(3, atk_cards)
+            max_extra = max(0, 5 - base_atk_dice)
             army_cnt = self._count_my_strategy("Army")
-            return [{"action": "attacker_army", "count": c} for c in range(0, min(3, army_cnt) + 1)]
+            return [{"action": "attacker_army", "count": c} for c in range(0, min(max_extra, army_cnt) + 1)]
 
         # 4. SelectAction Phase: Strategy cards, Declare Attack, or Pass Turn
         if self.game_state in ("DrawResult", "SelectAction", "ActionResult"):
             moves = [{"action": "pass"}]
+            opponents = self._get_active_opponents()
 
-            # Available non-reactive Strategy cards in hand
-            for strat in ("Backup", "Expand", "Destroy", "Bomb", "Spy", "Canon"):
-                if self._count_my_strategy(strat) > 0:
-                    moves.append({"action": "strategy", "strategy": strat})
-
-            # Legal Continent Attacks against active opponents
-            for src_c, my_cnt in self.my_continents.items():
-                if my_cnt <= 0:
-                    continue
-                connected = ALL_CONTINENTS if self.ignore_adjacency else CONTINENT_ADJACENCY.get(src_c, [src_c])
-                for p in self.players_data:
-                    if not isinstance(p, dict):
+            # Compute legal Continent Attacks against active opponents
+            attack_moves = []
+            if self.attacks_this_turn < 2:
+                for src_c, my_cnt in self.my_continents.items():
+                    if my_cnt <= 0:
                         continue
+                    connected = ALL_CONTINENTS if self.ignore_adjacency else CONTINENT_ADJACENCY.get(src_c, [src_c])
+                    for p in opponents:
+                        opp_id = int(p.get("index", 0))
+                        opp_conts = p.get("continents", {})
+                        if not isinstance(opp_conts, dict):
+                            continue
+                        for tgt_c in connected:
+                            if int(opp_conts.get(tgt_c, 0)) > 0:
+                                attack_moves.append({
+                                    "action": "declare_attack",
+                                    "source_continent": src_c,
+                                    "target_continent": tgt_c,
+                                    "target_index": opp_id,
+                                })
+
+            # Available non-reactive Strategy cards in hand with strict target validation
+            if self._count_my_strategy("Backup") > 0:
+                moves.append({"action": "strategy", "strategy": "Backup"})
+            if self._count_my_strategy("Expand") > 0 and not self.ignore_adjacency:
+                moves.append({"action": "strategy", "strategy": "Expand"})
+            if sum(self.my_continents.values()) == 0 and self._count_my_strategy("Army") > 0:
+                moves.append({"action": "strategy", "strategy": "Army"})
+
+            if self._count_my_strategy("Destroy") > 0:
+                for p in opponents:
                     opp_id = int(p.get("index", 0))
-                    if opp_id == my_role or opp_id not in self.active_player_indexes:
-                        continue
-                    opp_conts = p.get("continents", {})
-                    if not isinstance(opp_conts, dict):
-                        continue
-                    for tgt_c in connected:
-                        if int(opp_conts.get(tgt_c, 0)) > 0:
+                    opp_conts = p.get("continents", {}) if isinstance(p.get("continents"), dict) else {}
+                    avail_c = [c for c, cnt in opp_conts.items() if int(cnt) > 0]
+                    if avail_c:
+                        opp_toks = p.get("tokens", []) if isinstance(p.get("tokens"), list) else []
+                        avail_c.sort(key=lambda c: (1 if c in opp_toks else 0, -int(opp_conts[c])), reverse=True)
+                        moves.append({
+                            "action": "strategy",
+                            "strategy": "Destroy",
+                            "target_index": opp_id,
+                            "target_continent": avail_c[0],
+                        })
+                        break
+
+            for strat in ("Spy", "Bomb"):
+                if self._count_my_strategy(strat) > 0:
+                    for p in opponents:
+                        opp_id = int(p.get("index", 0))
+                        opp_conts = p.get("continents", {}) if isinstance(p.get("continents"), dict) else {}
+                        has_c = sum(int(v) for v in opp_conts.values()) > 0
+                        has_s = int(p.get("strategies_count", 0)) > 0
+                        if has_c or has_s:
                             moves.append({
-                                "action": "declare_attack",
-                                "source_continent": src_c,
-                                "target_continent": tgt_c,
+                                "action": "strategy",
+                                "strategy": strat,
                                 "target_index": opp_id,
                             })
+                            break
+
+            if self._count_my_strategy("Canon") > 0 and not self.canon_played_this_turn and len(attack_moves) > 0:
+                moves.append({"action": "strategy", "strategy": "Canon"})
+
+            moves.extend(attack_moves)
             return moves
 
         return []
@@ -302,17 +417,13 @@ class RiskGameLogic(BaseGameLogic):
         if act == "draw":
             dt = int(move.get("draw_type", 3))
             if dt == 1:
-                # 2 Continents: great when low on continents or pushing for domination
-                return 80.0 if my_total_c <= 4 else 55.0
+                return 115.0 if my_total_c <= 3 else 60.0
             elif dt == 3:
-                # 1 Continent + 1 Strategy: balanced championship choice
-                return 75.0
+                return 80.0
             else:
-                # 2 Strategies: good when we already have many continents but few tactics
-                return 70.0 if len(self.my_strategies) <= 1 and my_total_c >= 6 else 40.0
+                return 72.0 if len(self.my_strategies) <= 1 and my_total_c >= 6 else 40.0
 
         if act == "defender_cancel":
-            # Cancel attack if defending a continent where we hold a token or only have 1 card left
             tgt_c = (self.active_attack or {}).get("target_continent", "Asia")
             if tgt_c in self.my_tokens or self.my_continents.get(tgt_c, 0) <= 1:
                 return 160.0
@@ -331,7 +442,6 @@ class RiskGameLogic(BaseGameLogic):
             cnt = int(move.get("count", 0))
             src_c = (self.active_attack or {}).get("source_continent", "Asia")
             my_c = self.my_continents.get(src_c, 1)
-            # Commit 1-2 armies to reach 3+ dice
             needed = max(0, 3 - my_c)
             if cnt == min(my_army_cnt, max(1, needed)):
                 return 110.0
@@ -341,6 +451,8 @@ class RiskGameLogic(BaseGameLogic):
             strat = move.get("strategy")
             if strat == "Backup":
                 return 135.0
+            if strat == "Army":
+                return 130.0
             if strat == "Expand":
                 return 125.0
             if strat == "Destroy":
@@ -362,22 +474,17 @@ class RiskGameLogic(BaseGameLogic):
             for p in self.players_data:
                 if isinstance(p, dict) and int(p.get("index", 0)) == tgt_idx:
                     opp_c = int(p.get("continents", {}).get(tgt_c, 1))
-                    opp_tokens = p.get("tokens", [])
+                    opp_tokens = p.get("tokens", []) if isinstance(p.get("tokens"), list) else []
                     break
 
-            # Base tactical advantage: our attacking cards + army cards vs opponent's defending cards
             advantage = (my_c + min(2, my_army_cnt)) - opp_c
-            score = 45.0 + advantage * 28.0
-
-            # Huge bonus if opponent only has 1 card in tgt_c (chance to wipe out & claim Domination Token!)
+            score = 48.0 + advantage * 28.0 - (self.attacks_this_turn * 22.0)
             if opp_c == 1:
                 score += 45.0
-            # Priority target if opponent holds a Domination Token
             if tgt_c in opp_tokens:
                 score += 55.0
             elif len(opp_tokens) >= 1:
                 score += 25.0
-            # Penalty for attacking with our last card of a continent we hold a token for
             if src_c in self.my_tokens and my_c <= 2:
                 score -= 60.0
             elif my_c == 1 and opp_c >= 2:
@@ -426,7 +533,12 @@ class RiskGameLogic(BaseGameLogic):
         if act == "defender_cancel":
             return {"id": "DefenderArmy", "data": {"count": 0, "cancel": True}}
         if act == "strategy":
-            return {"id": "UseStrategy", "data": {"strategy": move.get("strategy")}}
+            payload: Dict[str, Any] = {"strategy": move.get("strategy")}
+            if "target_index" in move and move["target_index"] is not None:
+                payload["target_index"] = int(move["target_index"])
+            if "target_continent" in move and move["target_continent"]:
+                payload["target_continent"] = str(move["target_continent"])
+            return {"id": "UseStrategy", "data": payload}
         return {"id": "PassTurn", "data": {}}
 
     def format_state(self) -> str:
