@@ -15,6 +15,7 @@ from .games import (
     ChessGameLogic,
     FekrBekrGameLogic,
     BattleShipGameLogic,
+    RiskGameLogic,
     get_game_logic,
     register_game,
 )
@@ -26,6 +27,7 @@ TicTacToeBot = lambda **kw: LobbyBot("TicTacToe", **kw)
 ChessBot = lambda **kw: LobbyBot("Chess", **kw)
 FekrBekrBot = lambda **kw: LobbyBot("FekrBekr", **kw)
 BattleShipBot = lambda **kw: LobbyBot("BattleShip", **kw)
+RiskBot = lambda **kw: LobbyBot("Risk", **kw)
 
 __all__ = [
     "BOT_PHONE",
@@ -47,4 +49,6 @@ __all__ = [
     "FekrBekrBot",
     "BattleShipGameLogic",
     "BattleShipBot",
+    "RiskGameLogic",
+    "RiskBot",
 ]

@@ -26,6 +26,7 @@ from .box_four import BoxFourGameLogic
 from .yinsh import YinshGameLogic
 from .pentago import PentagoGameLogic
 from .ludo import LudoGameLogic
+from .risk import RiskGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -281,7 +282,20 @@ register_game(
     ],
 )
 
+register_game(
+    name="Risk",
+    cls=RiskGameLogic,
+    aliases=[
+        "risk",
+        "risk_strike",
+        "riskstrike",
+        "ریسک",
+        "ریسک استرایک",
+    ],
+)
+
 __all__ = [
+    "RiskGameLogic",
     "LudoGameLogic",
     "PentagoGameLogic",
     "YinshGameLogic",
