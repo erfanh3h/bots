@@ -267,7 +267,9 @@ class GameSession:
 
             elif isinstance(payload, dict):
 
-                role = payload.get("user", 2)
+                role = int(payload.get("user", payload.get("index", self.my_player_role or 2)))
+                self.my_player_role = role
+                self.game_logic.handle_server_command(cmd_id, payload)
 
                 self.game_logic.set_player_role(role)
 
@@ -504,6 +506,8 @@ class GameSession:
             # Dispatch any game-specific event to logic handler
 
             self.game_logic.handle_server_command(cmd_id, payload)
+            if hasattr(self.game_logic, "should_continue_turn") and self.game_logic.should_continue_turn():
+                await self._take_turn(is_continuation=(cmd_id not in ("DrawCard", "CurrentTurn")))
 
     async def _take_turn(self, is_continuation: bool = False):
 
