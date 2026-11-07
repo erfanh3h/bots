@@ -200,13 +200,25 @@ class RiskGameLogic(BaseGameLogic):
                             self.my_tokens = [str(t) for t in p["tokens"]]
             if isinstance(payload.get("tokens"), list):
                 self.free_tokens = [str(t) for t in payload["tokens"]]
-            self.active_attack = None
             if payload.get("is_game_finished", False):
+                self.active_attack = None
                 self.is_game_finished = True
                 self.game_state = "GameFinished"
                 self._pending_action = False
                 return True
             self.game_state = str(payload.get("game_state", "SelectAction"))
+            if payload.get("battle_continues", False) and self.game_state == "Attack":
+                self.active_attack = {
+                    "attacker_id": int(payload.get("attacker_id", self.current_turn)),
+                    "defender_id": int(payload.get("defender_id", 0)),
+                    "source_continent": str(payload.get("source_continent", "Asia")),
+                    "target_continent": str(payload.get("target_continent", "Asia")),
+                    "attacker_army": int(payload.get("attacker_army", 0)),
+                    "defender_army": int(payload.get("defender_army", 0)),
+                    "battle_started": True,
+                }
+            else:
+                self.active_attack = None
             # Note: bot_controller.py and game_session.py automatically invoke _take_turn() on RollResult
             if cmd_id == "Attack" and self.current_turn == my_role:
                 self._pending_action = True
@@ -294,8 +306,8 @@ class RiskGameLogic(BaseGameLogic):
             return []
         my_role = self.my_player_num or 2
 
-        # 1. Defender Response Phase (even when current_turn != my_role)
-        if self.game_state == "DefenderArmy" and self.active_attack:
+        # 1. Defender Response Phase (only before battle_started; no new Army cards after attack starts!)
+        if self.game_state == "DefenderArmy" and self.active_attack and not self.active_attack.get("battle_started", False):
             def_id = int(self.active_attack.get("defender_id", 0))
             if def_id == my_role:
                 tgt_c = str(self.active_attack.get("target_continent", "Asia"))
@@ -320,8 +332,8 @@ class RiskGameLogic(BaseGameLogic):
                 {"action": "draw", "draw_type": 3},
             ]
 
-        # 3. Attacker Army Commitment Phase
-        if self.game_state in ("DeclareAttack", "AttackerArmy") and self.active_attack:
+        # 3. Attacker Army Commitment Phase (only before battle_started)
+        if self.game_state in ("DeclareAttack", "AttackerArmy") and self.active_attack and not self.active_attack.get("battle_started", False):
             src_c = str(self.active_attack.get("source_continent", "Asia"))
             atk_cards = max(1, int(self.my_continents.get(src_c, 1)))
             base_atk_dice = min(3, atk_cards)
@@ -329,14 +341,21 @@ class RiskGameLogic(BaseGameLogic):
             army_cnt = self._count_my_strategy("Army")
             return [{"action": "attacker_army", "count": c} for c in range(0, min(max_extra, army_cnt) + 1)]
 
+        # 3b. Ongoing Multi-Round Attack Phase (no new Army cards allowed once attack has started!)
+        if self.game_state == "Attack" and self.active_attack:
+            return [
+                {"action": "continue_attack"},
+                {"action": "stop_attack"},
+            ]
+
         # 4. SelectAction Phase: Strategy cards, Declare Attack, or Pass Turn
         if self.game_state in ("DrawResult", "SelectAction", "ActionResult"):
             moves = [{"action": "pass"}]
             opponents = self._get_active_opponents()
 
-            # Compute legal Continent Attacks against active opponents
+            # Compute legal Continent Attacks against active opponents (max 1 attack per turn)
             attack_moves = []
-            if self.attacks_this_turn < 2:
+            if self.attacks_this_turn < 1:
                 for src_c, my_cnt in self.my_continents.items():
                     if my_cnt <= 0:
                         continue
@@ -447,6 +466,23 @@ class RiskGameLogic(BaseGameLogic):
                 return 110.0
             return 70.0 - abs(cnt - needed) * 15.0
 
+        if act == "continue_attack":
+            src_c = (self.active_attack or {}).get("source_continent", "Asia")
+            tgt_c = (self.active_attack or {}).get("target_continent", "Asia")
+            tgt_idx = int((self.active_attack or {}).get("defender_id", 0))
+            my_c = self.my_continents.get(src_c, 0) + int((self.active_attack or {}).get("attacker_army", 0))
+            opp_c = 1
+            for p in self.players_data:
+                if isinstance(p, dict) and int(p.get("index", 0)) == tgt_idx:
+                    opp_c = int(p.get("continents", {}).get(tgt_c, 1)) + int((self.active_attack or {}).get("defender_army", 0))
+                    break
+            if my_c >= opp_c or opp_c == 1:
+                return 115.0
+            return 45.0
+
+        if act == "stop_attack":
+            return 65.0
+
         if act == "strategy":
             strat = move.get("strategy")
             if strat == "Backup":
@@ -532,6 +568,10 @@ class RiskGameLogic(BaseGameLogic):
             return {"id": "DefenderArmy", "data": {"count": int(move.get("count", 0))}}
         if act == "defender_cancel":
             return {"id": "DefenderArmy", "data": {"count": 0, "cancel": True}}
+        if act == "continue_attack":
+            return {"id": "Attack", "data": {}}
+        if act == "stop_attack":
+            return {"id": "CancelAttack", "data": {"stop": True}}
         if act == "strategy":
             payload: Dict[str, Any] = {"strategy": move.get("strategy")}
             if "target_index" in move and move["target_index"] is not None:
