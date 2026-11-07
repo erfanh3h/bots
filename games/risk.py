@@ -27,6 +27,15 @@ CONTINENT_ADJACENCY: Dict[str, List[str]] = {
 
 ALL_CONTINENTS = ["Asia", "NorthAmerica", "Europe", "Africa", "Australia", "SouthAmerica"]
 
+DOMINATION_THRESHOLDS: Dict[str, int] = {
+    "Asia": 8,
+    "NorthAmerica": 6,
+    "Europe": 5,
+    "Africa": 4,
+    "Australia": 3,
+    "SouthAmerica": 3,
+}
+
 
 class RiskGameLogic(BaseGameLogic):
     def __init__(self, level: int = 2):
@@ -142,6 +151,15 @@ class RiskGameLogic(BaseGameLogic):
             new_data = payload.get("new_data")
             if isinstance(new_data, dict):
                 self._update_player_global(new_data)
+            if isinstance(payload.get("players_data"), list):
+                self.players_data = payload["players_data"]
+            if isinstance(payload.get("tokens"), list):
+                self.free_tokens = [str(t) for t in payload["tokens"]]
+            if payload.get("is_game_finished", False):
+                self.is_game_finished = True
+                self.game_state = "GameFinished"
+                self._pending_action = False
+                return True
             if "game_state" in payload:
                 self.game_state = str(payload["game_state"])
             else:
@@ -152,6 +170,11 @@ class RiskGameLogic(BaseGameLogic):
         if cmd_id == "DrawResultPrivate" and isinstance(payload, dict):
             if isinstance(payload.get("new_user_data"), dict):
                 self._sync_my_private(payload["new_user_data"])
+            if len(self.my_tokens) >= 2:
+                self.is_game_finished = True
+                self.game_state = "GameFinished"
+                self._pending_action = False
+                return True
             draw_type = int(payload.get("draw_type", 3))
             # Only continue turn on start-of-turn draw (draw_type 1, 2, or 3), NEVER on end-of-turn pass draw (draw_type 4)
             if draw_type in (1, 2, 3) and not self.is_game_finished and self.current_turn == my_role:
@@ -236,6 +259,12 @@ class RiskGameLogic(BaseGameLogic):
                             self.my_tokens = [str(t) for t in p["tokens"]]
             if isinstance(payload.get("tokens"), list):
                 self.free_tokens = [str(t) for t in payload["tokens"]]
+            if payload.get("is_game_finished", False):
+                self.active_attack = None
+                self.is_game_finished = True
+                self.game_state = "GameFinished"
+                self._pending_action = False
+                return True
             if payload.get("ignore_adjacency") and int(payload.get("gamer_id", 0)) == my_role:
                 self.ignore_adjacency = True
             if payload.get("strategy") == "Canon" and int(payload.get("gamer_id", 0)) == my_role:
@@ -388,8 +417,13 @@ class RiskGameLogic(BaseGameLogic):
                     opp_conts = p.get("continents", {}) if isinstance(p.get("continents"), dict) else {}
                     avail_c = [c for c, cnt in opp_conts.items() if int(cnt) > 0]
                     if avail_c:
-                        opp_toks = p.get("tokens", []) if isinstance(p.get("tokens"), list) else []
-                        avail_c.sort(key=lambda c: (1 if c in opp_toks else 0, -int(opp_conts[c])), reverse=True)
+                        avail_c.sort(
+                            key=lambda c: (
+                                1 if (c not in self.my_tokens and int(opp_conts[c]) >= DOMINATION_THRESHOLDS.get(c, 4) - 1) else 0,
+                                int(opp_conts[c]) / max(1, DOMINATION_THRESHOLDS.get(c, 4)),
+                            ),
+                            reverse=True,
+                        )
                         moves.append({
                             "action": "strategy",
                             "strategy": "Destroy",
@@ -435,12 +469,18 @@ class RiskGameLogic(BaseGameLogic):
 
         if act == "draw":
             dt = int(move.get("draw_type", 3))
+            close_to_dom = any(
+                c not in self.my_tokens and self.my_continents.get(c, 0) >= DOMINATION_THRESHOLDS.get(c, 4) - 1
+                for c in ALL_CONTINENTS
+            )
             if dt == 1:
-                return 115.0 if my_total_c <= 3 else 60.0
+                if close_to_dom or my_total_c <= 4:
+                    return 118.0
+                return 68.0
             elif dt == 3:
-                return 80.0
+                return 84.0
             else:
-                return 72.0 if len(self.my_strategies) <= 1 and my_total_c >= 6 else 40.0
+                return 72.0 if len(self.my_strategies) <= 1 and my_total_c >= 7 else 40.0
 
         if act == "defender_cancel":
             tgt_c = (self.active_attack or {}).get("target_continent", "Asia")
@@ -515,14 +555,16 @@ class RiskGameLogic(BaseGameLogic):
 
             advantage = (my_c + min(2, my_army_cnt)) - opp_c
             score = 48.0 + advantage * 28.0 - (self.attacks_this_turn * 22.0)
+            tgt_thresh = DOMINATION_THRESHOLDS.get(tgt_c, 4)
+            if opp_c >= tgt_thresh - 1 and tgt_c not in opp_tokens:
+                score += 60.0
             if opp_c == 1:
                 score += 45.0
-            if tgt_c in opp_tokens:
-                score += 55.0
-            elif len(opp_tokens) >= 1:
+            if len(opp_tokens) >= 1:
                 score += 25.0
-            if src_c in self.my_tokens and my_c <= 2:
-                score -= 60.0
+            src_thresh = DOMINATION_THRESHOLDS.get(src_c, 4)
+            if src_c not in self.my_tokens and my_c == src_thresh - 1 and opp_c >= 2:
+                score -= 45.0
             elif my_c == 1 and opp_c >= 2:
                 score -= 50.0
             return score
