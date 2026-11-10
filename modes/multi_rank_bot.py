@@ -73,7 +73,12 @@ class MultiRankBot:
         auto_exit_after_match: bool = True,
     ):
         raw_gt = str(game_type).strip().lower()
-        self.game_type = "Risk" if raw_gt == "risk" else "Ludo"
+        if raw_gt == "risk":
+            self.game_type = "Risk"
+        elif raw_gt == "uno":
+            self.game_type = "Uno"
+        else:
+            self.game_type = "Ludo"
         self.level = level
         self.auto_exit_after_match = auto_exit_after_match
 

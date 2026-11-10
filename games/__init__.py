@@ -27,6 +27,7 @@ from .yinsh import YinshGameLogic
 from .pentago import PentagoGameLogic
 from .ludo import LudoGameLogic
 from .risk import RiskGameLogic
+from .uno import UnoGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -294,7 +295,18 @@ register_game(
     ],
 )
 
+register_game(
+    name="Uno",
+    cls=UnoGameLogic,
+    aliases=[
+        "uno",
+        "اونو",
+        "uno_card",
+    ],
+)
+
 __all__ = [
+    "UnoGameLogic",
     "RiskGameLogic",
     "LudoGameLogic",
     "PentagoGameLogic",
