@@ -77,6 +77,8 @@ class MultiRankBot:
             self.game_type = "Risk"
         elif raw_gt == "uno":
             self.game_type = "Uno"
+        elif raw_gt in ("coup", "کودتا"):
+            self.game_type = "Coup"
         else:
             self.game_type = "Ludo"
         self.level = level

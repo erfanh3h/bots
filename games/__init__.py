@@ -30,6 +30,7 @@ from .risk import RiskGameLogic
 from .uno import UnoGameLogic
 from .quiz import QuizGameLogic
 from .quoridor import QuoridorGameLogic
+from .coup import CoupGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -328,7 +329,17 @@ register_game(
     ],
 )
 
+register_game(
+    name="Coup",
+    cls=CoupGameLogic,
+    aliases=[
+        "coup",
+        "کودتا",
+    ],
+)
+
 __all__ = [
+    "CoupGameLogic",
     "QuoridorGameLogic",
     "QuizGameLogic",
     "UnoGameLogic",

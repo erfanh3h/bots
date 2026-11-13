@@ -507,7 +507,7 @@ class GameSession:
 
             self.game_logic.handle_server_command(cmd_id, payload)
             if hasattr(self.game_logic, "should_continue_turn") and self.game_logic.should_continue_turn():
-                await self._take_turn(is_continuation=(cmd_id not in ("DrawCard", "CurrentTurn")))
+                await self._take_turn(is_continuation=(cmd_id not in ("DrawCard", "CurrentTurn", "CoupState", "CoupEvent", "UserData")))
 
     async def _take_turn(self, is_continuation: bool = False):
 
