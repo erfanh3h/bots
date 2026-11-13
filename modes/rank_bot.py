@@ -75,6 +75,7 @@ TWO_PLAYER_GAMES = [
     "BoxFour",
     "MNumbers",
     "Yinsh",
+    "Quoridor",
 ]
 
 
@@ -136,6 +137,7 @@ class RankBot:
             "TicTacToe",
             "Mill",
             "DotBox",
+            "Quoridor",
         ]
 
         # Preferred games for banning (lengthy or puzzle games)
