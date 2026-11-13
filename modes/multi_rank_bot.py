@@ -79,6 +79,8 @@ class MultiRankBot:
             self.game_type = "Uno"
         elif raw_gt in ("coup", "کودتا"):
             self.game_type = "Coup"
+        elif raw_gt in ("monopoly", "مونوپولی", "منوپولی"):
+            self.game_type = "Monopoly"
         else:
             self.game_type = "Ludo"
         self.level = level

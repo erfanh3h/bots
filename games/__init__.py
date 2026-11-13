@@ -31,6 +31,7 @@ from .uno import UnoGameLogic
 from .quiz import QuizGameLogic
 from .quoridor import QuoridorGameLogic
 from .coup import CoupGameLogic
+from .monopoly import MonopolyGameLogic
 
 _GAME_REGISTRY: Dict[str, Type[BaseGameLogic]] = {}
 _ALIAS_MAP: Dict[str, str] = {}
@@ -337,8 +338,18 @@ register_game(
         "کودتا",
     ],
 )
+register_game(
+    name="Monopoly",
+    cls=MonopolyGameLogic,
+    aliases=[
+        "monopoly",
+        "مونوپولی",
+        "منوپولی",
+    ],
+)
 
 __all__ = [
+    "MonopolyGameLogic",
     "CoupGameLogic",
     "QuoridorGameLogic",
     "QuizGameLogic",
