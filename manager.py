@@ -249,6 +249,44 @@ class BotManager:
             })
         return personas
 
+    def allocate_distinct_personas(self, count: int = 1, primary_spec: Optional[str | Dict] = None) -> List[tuple[Dict[str, Any], str]]:
+        """
+        Allocates `count` unique personas and their tokens, prioritizing unused personas.
+        """
+        active_uids = {
+            str(b.persona.get("_id", ""))
+            for b in self.bots.values()
+            if b.status in ("starting", "running", "in_queue", "pre_game", "playing")
+        }
+
+        all_personas = self.get_personas()
+        selected: List[tuple[Dict[str, Any], str]] = []
+        used_ids = set()
+
+        # 1. Primary requested persona
+        if primary_spec:
+            p, tok = self.resolve_persona_and_token(primary_spec)
+            p_id = str(p.get("_id", ""))
+            selected.append((p, tok))
+            used_ids.add(p_id)
+
+        # 2. Fill remaining from unused personas
+        candidates = [p for p in all_personas if str(p.get("_id", "")) not in active_uids and str(p.get("_id", "")) not in used_ids]
+        candidates += [p for p in all_personas if str(p.get("_id", "")) not in used_ids and p not in candidates]
+
+        for p in candidates:
+            if len(selected) >= count:
+                break
+            tok = RealUserManager.get_token(p)
+            selected.append((p, tok))
+            used_ids.add(str(p.get("_id", "")))
+
+        # Fallback if count exceeds available unique personas
+        while len(selected) < count:
+            selected.append(self.resolve_persona_and_token("default"))
+
+        return selected
+
     def resolve_persona_and_token(self, persona_spec: Optional[str | Dict] = None) -> tuple[Dict[str, Any], str]:
         """Resolves persona dict and valid signed JWT token."""
         if not persona_spec or persona_spec == "default" or persona_spec == BOT_USER_ID:
@@ -301,74 +339,87 @@ class BotManager:
         persona_spec: Optional[str | Dict] = None,
         target_lobby_id: Optional[str] = None,
         auto_exit: bool = False,
-    ) -> ManagedBot:
-        """Starts a LobbyBot instance listening for rooms or targeting a specific room."""
-        self.counter += 1
-        bot_id = f"lobby_{game_type.lower()}_{self.counter}"
-        persona, token = self.resolve_persona_and_token(persona_spec)
+        count: int = 1,
+    ) -> List[ManagedBot]:
+        """Starts one or more LobbyBot instances listening for rooms or targeting a specific room."""
+        count = max(1, min(10, count))
+        allocated = self.allocate_distinct_personas(count=count, primary_spec=persona_spec)
+        launched: List[ManagedBot] = []
 
-        m_bot = ManagedBot(
-            bot_id=bot_id,
-            bot_type="lobby",
-            game_type=game_type,
-            persona=persona,
-            token=token,
-            level=1,
-            auto_exit=auto_exit,
-        )
-        self.bots[bot_id] = m_bot
+        for idx, (persona, token) in enumerate(allocated):
+            self.counter += 1
+            bot_id = f"lobby_{game_type.lower()}_{self.counter}"
 
-        # Instantiate LobbyBot
-        bot_instance = LobbyBot(
-            game_logic_or_type=game_type,
-            token=token,
-            auto_exit_after_match=auto_exit,
-        )
-        bot_instance.my_user_id = str(persona.get("_id", BOT_USER_ID))
-        bot_instance.bot_phone = str(persona.get("phone", BOT_PHONE))
-        bot_instance.bot_name = str(persona.get("username", "ربات لابی"))
-        bot_instance.target_lobby_id = target_lobby_id
-        m_bot.instance = bot_instance
+            m_bot = ManagedBot(
+                bot_id=bot_id,
+                bot_type="lobby",
+                game_type=game_type,
+                persona=persona,
+                token=token,
+                level=1,
+                auto_exit=auto_exit,
+            )
+            self.bots[bot_id] = m_bot
 
-        def on_exit():
-            m_bot.status = "finished"
-            m_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            self.add_log(f"[{bot_id}] Lobby match concluded. Bot status: finished.", bot_id=bot_id)
+            bot_instance = LobbyBot(
+                game_logic_or_type=game_type,
+                token=token,
+                auto_exit_after_match=auto_exit,
+            )
+            bot_instance.my_user_id = str(persona.get("_id", BOT_USER_ID))
+            bot_instance.bot_phone = str(persona.get("phone", BOT_PHONE))
+            bot_instance.bot_name = str(persona.get("username", f"ربات {game_type}"))
+            bot_instance.target_lobby_id = target_lobby_id
+            m_bot.instance = bot_instance
 
-        bot_instance.on_exit_callback = on_exit
+            def make_on_exit(cur_bot, cur_id):
+                def on_exit():
+                    cur_bot.status = "finished"
+                    cur_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    self.add_log(f"[{cur_id}] Lobby match concluded. Bot status: finished.", bot_id=cur_id)
+                return on_exit
 
-        async def run_wrapper():
-            m_bot.status = "running"
-            self.add_log(f"[{bot_id}] Launched Lobby Bot for '{game_type}' as '{persona.get('username')}'", bot_id=bot_id)
-            run_task = None
-            try:
-                run_task = asyncio.create_task(bot_instance.run())
-                if target_lobby_id:
-                    async def join_target_when_ready():
-                        for _ in range(60):
-                            if bot_instance.lobby_sio and "/lobby" in bot_instance.lobby_sio.namespaces:
-                                await asyncio.sleep(0.2)
-                                await bot_instance.join_specific_lobby(target_lobby_id)
-                                break
-                            await asyncio.sleep(0.1)
-                    asyncio.create_task(join_target_when_ready())
-                await run_task
-            except asyncio.CancelledError:
-                m_bot.status = "stopped"
-                self.add_log(f"[{bot_id}] Lobby Bot task cancelled.", bot_id=bot_id)
-                if run_task and not run_task.done():
-                    run_task.cancel()
-            except Exception as e:
-                m_bot.status = "error"
-                m_bot.detail = str(e)
-                self.add_log(f"[{bot_id}] Lobby Bot error: {e}", level="ERROR", bot_id=bot_id)
-            finally:
-                if m_bot.status not in ("finished", "stopped", "error"):
-                    m_bot.status = "stopped"
-                m_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            bot_instance.on_exit_callback = make_on_exit(m_bot, bot_id)
 
-        m_bot.task = asyncio.create_task(run_wrapper())
-        return m_bot
+            def make_run_wrapper(cur_bot, cur_id, cur_instance):
+                async def run_wrapper():
+                    cur_bot.status = "running"
+                    self.add_log(f"[{cur_id}] Launched Lobby Bot for '{game_type}' as '{cur_bot.persona.get('username')}'", bot_id=cur_id)
+                    run_task = None
+                    try:
+                        run_task = asyncio.create_task(cur_instance.run())
+                        if target_lobby_id:
+                            async def join_target_when_ready():
+                                for _ in range(60):
+                                    if cur_instance.lobby_sio and "/lobby" in cur_instance.lobby_sio.namespaces:
+                                        await asyncio.sleep(0.2)
+                                        await cur_instance.join_specific_lobby(target_lobby_id)
+                                        break
+                                    await asyncio.sleep(0.1)
+                            asyncio.create_task(join_target_when_ready())
+                        await run_task
+                    except asyncio.CancelledError:
+                        cur_bot.status = "stopped"
+                        self.add_log(f"[{cur_id}] Lobby Bot task cancelled.", bot_id=cur_id)
+                        if run_task and not run_task.done():
+                            run_task.cancel()
+                    except Exception as e:
+                        cur_bot.status = "error"
+                        cur_bot.detail = str(e)
+                        self.add_log(f"[{cur_id}] Lobby Bot error: {e}", level="ERROR", bot_id=cur_id)
+                    finally:
+                        if cur_bot.status not in ("finished", "stopped", "error"):
+                            cur_bot.status = "stopped"
+                        cur_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                return run_wrapper
+
+            m_bot.task = asyncio.create_task(make_run_wrapper(m_bot, bot_id, bot_instance)())
+            launched.append(m_bot)
+
+            if idx < len(allocated) - 1:
+                await asyncio.sleep(0.3)
+
+        return launched
 
     async def create_and_join_lobby(
         self,
@@ -503,56 +554,70 @@ class BotManager:
         persona_spec: Optional[str | Dict] = None,
         level: int = 2,
         auto_exit: bool = False,
-    ) -> ManagedBot:
-        """Starts a 4-Player Multiplayer Rank Bot (Ludo, Risk, Uno, Coup, Monopoly)."""
-        self.counter += 1
-        bot_id = f"multi_{game_type.lower()}_{self.counter}"
-        persona, token = self.resolve_persona_and_token(persona_spec)
+        count: int = 1,
+    ) -> List[ManagedBot]:
+        """Starts one or more 4-Player Multiplayer Rank Bots (/multi-queue) for Ludo, Risk, Uno, Coup, Monopoly."""
+        count = max(1, min(4, count))
+        allocated = self.allocate_distinct_personas(count=count, primary_spec=persona_spec)
+        launched: List[ManagedBot] = []
 
-        m_bot = ManagedBot(
-            bot_id=bot_id,
-            bot_type="multi_rank",
-            game_type=game_type,
-            persona=persona,
-            token=token,
-            level=level,
-            auto_exit=auto_exit,
-        )
-        self.bots[bot_id] = m_bot
+        for idx, (persona, token) in enumerate(allocated):
+            self.counter += 1
+            bot_id = f"multi_{game_type.lower()}_{self.counter}"
 
-        bot_instance = MultiRankBot(
-            game_type=game_type,
-            token=token,
-            level=level,
-            auto_exit_after_match=auto_exit,
-        )
-        m_bot.instance = bot_instance
+            m_bot = ManagedBot(
+                bot_id=bot_id,
+                bot_type="multi_rank",
+                game_type=game_type,
+                persona=persona,
+                token=token,
+                level=level,
+                auto_exit=auto_exit,
+            )
+            self.bots[bot_id] = m_bot
 
-        def on_exit():
-            m_bot.status = "finished"
-            m_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            self.add_log(f"[{bot_id}] Multi-Rank match ({game_type}) concluded.", bot_id=bot_id)
+            bot_instance = MultiRankBot(
+                game_type=game_type,
+                token=token,
+                level=level,
+                auto_exit_after_match=auto_exit,
+            )
+            m_bot.instance = bot_instance
 
-        bot_instance.on_exit_callback = on_exit
+            def make_on_exit(cur_bot, cur_id):
+                def on_exit():
+                    cur_bot.status = "finished"
+                    cur_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    self.add_log(f"[{cur_id}] Multi-Rank match ({game_type}) concluded.", bot_id=cur_id)
+                return on_exit
 
-        async def run_wrapper():
-            m_bot.status = "in_queue"
-            self.add_log(f"[{bot_id}] Entering Multi-Queue for '{game_type}' as '{persona.get('username')}'", bot_id=bot_id)
-            try:
-                await bot_instance.run()
-            except asyncio.CancelledError:
-                m_bot.status = "stopped"
-            except Exception as e:
-                m_bot.status = "error"
-                m_bot.detail = str(e)
-                self.add_log(f"[{bot_id}] Multi-Rank error: {e}", level="ERROR", bot_id=bot_id)
-            finally:
-                if m_bot.status not in ("finished", "stopped", "error"):
-                    m_bot.status = "stopped"
-                m_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            bot_instance.on_exit_callback = make_on_exit(m_bot, bot_id)
 
-        m_bot.task = asyncio.create_task(run_wrapper())
-        return m_bot
+            def make_run_wrapper(cur_bot, cur_id, cur_instance):
+                async def run_wrapper():
+                    cur_bot.status = "in_queue"
+                    self.add_log(f"[{cur_id}] Entering Multi-Queue for '{game_type}' as '{cur_bot.persona.get('username')}'", bot_id=cur_id)
+                    try:
+                        await cur_instance.run()
+                    except asyncio.CancelledError:
+                        cur_bot.status = "stopped"
+                    except Exception as e:
+                        cur_bot.status = "error"
+                        cur_bot.detail = str(e)
+                        self.add_log(f"[{cur_id}] Multi-Rank error: {e}", level="ERROR", bot_id=cur_id)
+                    finally:
+                        if cur_bot.status not in ("finished", "stopped", "error"):
+                            cur_bot.status = "stopped"
+                        cur_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                return run_wrapper
+
+            m_bot.task = asyncio.create_task(make_run_wrapper(m_bot, bot_id, bot_instance)())
+            launched.append(m_bot)
+
+            if idx < len(allocated) - 1:
+                await asyncio.sleep(0.35)
+
+        return launched
 
     async def stop_bot(self, bot_id: str) -> bool:
         """Cleanly stops a specific running bot."""

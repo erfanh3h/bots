@@ -63,6 +63,7 @@ class LobbyStartRequest(BaseModel):
     persona_spec: Optional[str] = None
     target_lobby_id: Optional[str] = None
     auto_exit: bool = False
+    count: int = 1  # Number of bots to launch (e.g. 1 to 3 for multiplayer games)
 
 
 class LobbyCreateRequest(BaseModel):
@@ -86,6 +87,7 @@ class MultiRankStartRequest(BaseModel):
     persona_spec: Optional[str] = None
     level: int = 2
     auto_exit: bool = False
+    count: int = 1  # Number of bots to launch (e.g. 1 to 4)
 
 
 class SocialActionRequest(BaseModel):
@@ -173,16 +175,20 @@ async def scan_lobbies():
     return await manager.fetch_live_lobbies()
 
 
-@app.post("/api/bots/lobby/start", summary="Start Lobby Bot (Auto-Join or Specific Room)")
+@app.post("/api/bots/lobby/start", summary="Start Lobby Bot (Auto-Join or Specific Room, supports multiple bots)")
 async def start_lobby_bot(req: LobbyStartRequest):
     try:
-        m_bot = await manager.start_lobby_bot(
+        bots = await manager.start_lobby_bot(
             game_type=req.game_type,
             persona_spec=req.persona_spec,
             target_lobby_id=req.target_lobby_id,
             auto_exit=req.auto_exit,
+            count=max(1, min(10, req.count)),
         )
-        return m_bot.to_dict()
+        first_dict = bots[0].to_dict()
+        first_dict["bots"] = [b.to_dict() for b in bots]
+        first_dict["count"] = len(bots)
+        return first_dict
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -221,16 +227,20 @@ async def start_rank_bot(req: RankStartRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/bots/multi-rank/start", summary="Start 4-Player Multi-Rank Bot (/multi-queue)")
+@app.post("/api/bots/multi-rank/start", summary="Start 4-Player Multi-Rank Bot (/multi-queue, supports multiple bots)")
 async def start_multi_rank_bot(req: MultiRankStartRequest):
     try:
-        m_bot = await manager.start_multi_rank_bot(
+        bots = await manager.start_multi_rank_bot(
             game_type=req.game_type,
             persona_spec=req.persona_spec,
             level=req.level,
             auto_exit=req.auto_exit,
+            count=max(1, min(4, req.count)),
         )
-        return m_bot.to_dict()
+        first_dict = bots[0].to_dict()
+        first_dict["bots"] = [b.to_dict() for b in bots]
+        first_dict["count"] = len(bots)
+        return first_dict
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

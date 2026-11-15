@@ -163,11 +163,11 @@
                     </h2>
                     <span class="text-xs text-zinc-400">با یک کلیک ربات دلخواه را در حالت مناسب اجرا کنید</span>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <button onclick="quickLaunchLobby('TicTacToe')" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
                         <div class="flex items-center justify-between">
                             <span class="text-lg">⭕</span>
-                            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono">Lobby</span>
+                            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono">Lobby 1P</span>
                         </div>
                         <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-blue-400">ربات دوز (TicTacToe)</h4>
                         <p class="text-xs text-zinc-500 mt-0.5">آماده اتصال و پذیرش در لابی</p>
@@ -175,7 +175,7 @@
                     <button onclick="quickLaunchLobby('Chess')" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
                         <div class="flex items-center justify-between">
                             <span class="text-lg">♟️</span>
-                            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono">Lobby</span>
+                            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono">Lobby 1P</span>
                         </div>
                         <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-blue-400">ربات شطرنج (Chess)</h4>
                         <p class="text-xs text-zinc-500 mt-0.5">ورود به لابی شطرنج</p>
@@ -185,16 +185,24 @@
                             <span class="text-lg">⚔️</span>
                             <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono">Rank 1v1</span>
                         </div>
-                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-amber-400">ربات صف رنک اصلی</h4>
+                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-amber-400">صف رنک اصلی</h4>
                         <p class="text-xs text-zinc-500 mt-0.5">پیک و بن هوشمند و سری بازی</p>
                     </button>
-                    <button onclick="quickLaunchMulti('Ludo')" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
+                    <button onclick="quickLaunchMulti('Ludo', 1)" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
                         <div class="flex items-center justify-between">
                             <span class="text-lg">🏁</span>
-                            <span class="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-mono">Multi 4P</span>
+                            <span class="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-mono">1 Bot</span>
                         </div>
-                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-purple-400">ربات رنک منچ (Ludo)</h4>
-                        <p class="text-xs text-zinc-500 mt-0.5">صف ۴ نفره چندنفره</p>
+                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-purple-400">۱ ربات منچ (Ludo)</h4>
+                        <p class="text-xs text-zinc-500 mt-0.5">ورود ۱ ربات به صف ۴ نفره</p>
+                    </button>
+                    <button onclick="quickLaunchMulti('Ludo', 3)" class="bg-gradient-to-br from-purple-950/40 to-zinc-800/90 hover:from-purple-900/60 hover:to-zinc-800 border border-purple-500/40 p-3 rounded-lg text-right transition group shadow shadow-purple-900/20">
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg">🏁🏁🏁</span>
+                            <span class="text-[10px] bg-purple-500 text-white font-bold px-2 py-0.5 rounded font-mono">3 Bots</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-purple-300 mt-2 group-hover:text-white">تکمیل منچ با ۳ ربات!</h4>
+                        <p class="text-xs text-zinc-400 mt-0.5">پر کردن فوری ۳ جای خالی منچ شما</p>
                     </button>
                 </div>
             </div>
@@ -254,10 +262,35 @@
 
                     <!-- Persona Selector -->
                     <div>
-                        <label class="block text-xs font-medium text-zinc-300 mb-1">اکانت / پرسونای ربات:</label>
+                        <label class="block text-xs font-medium text-zinc-300 mb-1">اکانت / پرسونای ربات اصلی:</label>
                         <select id="lobby-persona-select" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none focus:border-blue-500">
                             <!-- Populated dynamically -->
                         </select>
+                    </div>
+
+                    <!-- Bot Count Selector -->
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-medium text-zinc-300">تعداد ربات‌های ارسالی همزمان:</label>
+                            <span class="text-[11px] text-zinc-400 font-mono" id="lobby-count-label">۱ ربات</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="flex items-center justify-center gap-1.5 p-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer text-xs hover:border-blue-500 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-600/20 text-zinc-300">
+                                <input type="radio" name="lobby-bot-count" value="1" checked onchange="updateLobbyCountUI()" class="hidden">
+                                <span>۱ ربات (تک)</span>
+                            </label>
+                            <label class="flex items-center justify-center gap-1.5 p-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer text-xs hover:border-blue-500 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-600/20 text-zinc-300">
+                                <input type="radio" name="lobby-bot-count" value="2" onchange="updateLobbyCountUI()" class="hidden">
+                                <span>۲ ربات</span>
+                            </label>
+                            <label class="flex items-center justify-center gap-1.5 p-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer text-xs hover:border-blue-500 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-600/20 text-zinc-300">
+                                <input type="radio" name="lobby-bot-count" value="3" onchange="updateLobbyCountUI()" class="hidden">
+                                <span>۳ ربات (تکمیل ۴ نفره)</span>
+                            </label>
+                        </div>
+                        <p id="lobby-multi-hint" class="text-[11px] text-amber-400/90 mt-1.5 flex items-center gap-1 bg-amber-950/30 p-2 rounded border border-amber-800/30">
+                            <span>💡</span> <span>برای بازی‌های ۴ نفره (مثل منچ و مونوپولی)، ارسال ۲ یا ۳ ربات به صورت خودکار با اکانت‌های مجزا انجام می‌شود.</span>
+                        </p>
                     </div>
 
                     <!-- Mode of Lobby Entry -->
@@ -431,11 +464,40 @@
                             </select>
                         </div>
 
+                        <!-- Multi-Rank Bot Count Selector -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-xs font-medium text-zinc-300">تعداد ربات‌های ارسالی همزمان به صف:</label>
+                                <span class="text-[11px] text-purple-400 font-mono" id="multi-count-label">۱ ربات</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-2">
+                                <label class="flex items-center justify-center gap-1 p-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer text-xs hover:border-purple-500 transition has-[:checked]:border-purple-500 has-[:checked]:bg-purple-600/20 text-zinc-300">
+                                    <input type="radio" name="multi-bot-count" value="1" checked onchange="updateMultiCountUI()" class="hidden">
+                                    <span>۱ ربات</span>
+                                </label>
+                                <label class="flex items-center justify-center gap-1 p-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer text-xs hover:border-purple-500 transition has-[:checked]:border-purple-500 has-[:checked]:bg-purple-600/20 text-zinc-300">
+                                    <input type="radio" name="multi-bot-count" value="2" onchange="updateMultiCountUI()" class="hidden">
+                                    <span>۲ ربات</span>
+                                </label>
+                                <label class="flex items-center justify-center gap-1 p-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer text-xs hover:border-purple-500 transition has-[:checked]:border-purple-500 has-[:checked]:bg-purple-600/20 text-zinc-300">
+                                    <input type="radio" name="multi-bot-count" value="3" onchange="updateMultiCountUI()" class="hidden">
+                                    <span>۳ ربات</span>
+                                </label>
+                                <label class="flex items-center justify-center gap-1 p-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer text-xs hover:border-purple-500 transition has-[:checked]:border-purple-500 has-[:checked]:bg-purple-600/20 text-zinc-300">
+                                    <input type="radio" name="multi-bot-count" value="4" onchange="updateMultiCountUI()" class="hidden">
+                                    <span>۴ ربات (کامل)</span>
+                                </label>
+                            </div>
+                            <p class="text-[11px] text-purple-300/80 mt-1 flex items-center gap-1 bg-purple-950/30 p-2 rounded border border-purple-800/30">
+                                <span>💡</span> <span>برای تکمیل صف منچ یا بازی‌های گروهی، ارسال ۳ ربات (همراه با ۱ بازیکن واقعی) بازی را فوراً استارت می‌زند. هر ربات با یک اکانت مجزا وارد می‌شود.</span>
+                            </p>
+                        </div>
+
                         <div class="p-3 bg-zinc-900 rounded-lg text-xs space-y-1 text-zinc-400">
                             <p>• ربات در نیم‌اسپیس <code class="text-purple-300 font-mono">/multi-queue</code> منتظر ۴ بازیکن می‌ماند و با ارسال <code class="text-purple-300 font-mono">StartGame</code> مستقیماً وارد بازی <code class="text-purple-300 font-mono">/game</code> می‌شود.</p>
                         </div>
 
-                        <button onclick="launchMultiRank()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2">
+                        <button id="multi-launch-btn" onclick="launchMultiRank()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2">
                             <span>👥</span> ورود به صف چندنفره (Enter Multi-Queue)
                         </button>
                     </div>
@@ -667,6 +729,26 @@
             const mode = document.querySelector('input[name="lobby-mode"]:checked').value;
             document.getElementById('lobby-specific-box').classList.toggle('hidden', mode !== 'specific');
             document.getElementById('lobby-create-box').classList.toggle('hidden', mode !== 'create');
+        }
+
+        function updateLobbyCountUI() {
+            const count = document.querySelector('input[name="lobby-bot-count"]:checked')?.value || '1';
+            const label = document.getElementById('lobby-count-label');
+            if (label) {
+                label.innerText = `${count} ربات`;
+            }
+        }
+
+        function updateMultiCountUI() {
+            const count = document.querySelector('input[name="multi-bot-count"]:checked')?.value || '1';
+            const label = document.getElementById('multi-count-label');
+            if (label) {
+                label.innerText = `${count} ربات`;
+            }
+            const btn = document.getElementById('multi-launch-btn');
+            if (btn) {
+                btn.innerHTML = `<span>👥</span> ورود ${count} ربات به صف چندنفره (Enter Multi-Queue)`;
+            }
         }
 
         // ---------------------------------------------------------------------
@@ -933,17 +1015,19 @@
                     showToast(`اتاق لابی با موفقیت ساخته شد (#${d.bot_id})`, 'success');
                 } else {
                     const targetId = mode === 'specific' ? document.getElementById('lobby-target-id').value : null;
+                    const count = parseInt(document.querySelector('input[name="lobby-bot-count"]:checked')?.value || '1');
                     const res = await fetch('/api/bots/lobby/start', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ game_type: gameType, persona_spec: persona, target_lobby_id: targetId, auto_exit: autoExit })
+                        body: JSON.stringify({ game_type: gameType, persona_spec: persona, target_lobby_id: targetId, auto_exit: autoExit, count: count })
                     });
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
                         throw new Error(err.detail || `خطای سرور: ${res.status}`);
                     }
                     const d = await res.json();
-                    showToast(`ربات لابی '${gameType}' با موفقیت اجرا شد (#${d.bot_id})`, 'success');
+                    const total = d.count || (d.bots ? d.bots.length : count);
+                    showToast(`${total} ربات لابی '${gameType}' با موفقیت اجرا شد (#${d.bot_id})`, 'success');
                 }
                 fetchSystemStatus();
                 switchTab('console');
@@ -979,19 +1063,21 @@
             const gameType = document.getElementById('multi-game-select').value;
             const persona = document.getElementById('multi-persona-select').value;
             const level = parseInt(document.getElementById('multi-level-select').value);
+            const count = parseInt(document.querySelector('input[name="multi-bot-count"]:checked')?.value || '1');
 
             try {
                 const res = await fetch('/api/bots/multi-rank/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ game_type: gameType, persona_spec: persona, level: level, auto_exit: false })
+                    body: JSON.stringify({ game_type: gameType, persona_spec: persona, level: level, auto_exit: false, count: count })
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.detail || `خطای سرور: ${res.status}`);
                 }
                 const d = await res.json();
-                showToast(`ربات ۴ نفره '${gameType}' وارد صف مسابقه شد (#${d.bot_id})`, 'success');
+                const total = d.count || (d.bots ? d.bots.length : count);
+                showToast(`${total} ربات ۴ نفره '${gameType}' وارد صف مسابقه شدند (#${d.bot_id})`, 'success');
                 fetchSystemStatus();
                 switchTab('console');
             } catch (err) {
@@ -1039,23 +1125,26 @@
             }
         }
 
-        async function quickLaunchMulti(game) {
+        async function quickLaunchMulti(game, count = 1) {
             try {
                 const res = await fetch('/api/bots/multi-rank/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ game_type: game, level: 2 })
+                    body: JSON.stringify({ game_type: game, level: 2, count: count })
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.detail || `خطای سرور: ${res.status}`);
                 }
                 const d = await res.json();
-                showToast(`پرتاب سریع: ربات ${game} وارد صف ۴ نفره شد!`, 'success');
+                const total = d.count || (d.bots ? d.bots.length : count);
+                showToast(`پرتاب سریع: ${total} ربات ${game} وارد صف ۴ نفره شدند!`, 'success');
                 fetchSystemStatus();
                 switchTab('console');
             } catch (err) {
                 showToast("خطا در اجرای صف چندنفره: " + err.message, 'error');
+            }
+        }
             }
         }
 
@@ -1109,42 +1198,55 @@
                     return;
                 }
 
-                container.innerHTML = lobbies.map(l => `
+                container.innerHTML = lobbies.map(l => {
+                    const capacity = l.lobby_count || (['Ludo', 'Risk', 'Uno', 'Coup', 'Monopoly'].includes(l.game_type) ? 4 : 2);
+                    const currentQueuers = l.queuers_length || (l.queuers ? l.queuers.length : 1);
+                    const remaining = Math.max(1, capacity - currentQueuers);
+                    return `
                     <div class="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex items-center justify-between hover:border-zinc-700 transition">
                         <div>
                             <div class="flex items-center gap-2">
-                                <h4 class="font-bold text-zinc-100 text-sm">${l.lobby_name || 'اتاق بازی'}</h4>
+                                <h4 class="font-bold text-zinc-100 text-sm">${escapeHtml(l.lobby_name || 'اتاق بازی')}</h4>
                                 <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded font-mono">${l.game_type}</span>
                             </div>
                             <div class="text-xs text-zinc-400 mt-1 flex items-center gap-3">
-                                <span>سازنده: <strong class="text-zinc-300 font-mono">${l.creator_id || 'نامشخص'}</strong></span>
-                                <span>ظرفیت: <strong>${l.queuers_length || (l.queuers ? l.queuers.length : 1)} / ${l.lobby_count || 2}</strong></span>
+                                <span>سازنده: <strong class="text-zinc-300 font-mono">${escapeHtml(l.creator_id || 'نامشخص')}</strong></span>
+                                <span>ظرفیت: <strong>${currentQueuers} / ${capacity}</strong></span>
                                 <span class="font-mono text-zinc-500 text-[11px]">ID: ${l.lobby_id}</span>
                             </div>
                         </div>
-                        <button onclick="sendBotToLobby('${l.lobby_id}', '${l.game_type}')" class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow">
-                            ارسال ربات به این اتاق 🤖
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="sendBotToLobby('${l.lobby_id}', '${l.game_type}', 1)" class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow">
+                                ارسال ۱ ربات 🤖
+                            </button>
+                            ${remaining > 1 ? `
+                            <button onclick="sendBotToLobby('${l.lobby_id}', '${l.game_type}', ${remaining})" class="bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs px-3 py-2 rounded-lg transition shadow">
+                                تکمیل اتاق (${remaining} ربات) 🚀
+                            </button>
+                            ` : ''}
+                        </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } catch (err) {
                 container.innerHTML = '<div class="p-6 text-center text-rose-400">خطا در اسکن لابی‌ها (احتمالاً بک‌ند ۵۰۰۰ اجرا نیست)</div>';
             }
         }
 
-        async function sendBotToLobby(lobbyId, gameType) {
+        async function sendBotToLobby(lobbyId, gameType, count = 1) {
             try {
                 const res = await fetch('/api/bots/lobby/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ game_type: gameType, target_lobby_id: lobbyId })
+                    body: JSON.stringify({ game_type: gameType, target_lobby_id: lobbyId, count: count })
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.detail || `خطای سرور: ${res.status}`);
                 }
                 const d = await res.json();
-                showToast(`ربات برای ورود به اتاق ${lobbyId} ارسال شد!`, 'success');
+                const total = d.count || (d.bots ? d.bots.length : count);
+                showToast(`${total} ربات برای ورود به اتاق ${lobbyId} ارسال شد!`, 'success');
                 fetchSystemStatus();
                 switchTab('console');
             } catch (err) {
