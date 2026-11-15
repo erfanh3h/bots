@@ -13,7 +13,7 @@ import base64
 import json
 import os
 import sys
-from typing import Optional
+from typing import Callable, Optional
 import socketio
 
 if sys.platform == "win32":
@@ -98,6 +98,8 @@ class MultiRankBot:
         self.active_session: Optional[GameSession] = None
         self.active_game_logic: Optional[BaseGameLogic] = None
         self.is_running = False
+        self.on_exit_callback: Optional[Callable] = None
+        self.match_status: str = "idle"
         self._setup_queue_handlers()
 
     def _setup_queue_handlers(self):
@@ -140,7 +142,15 @@ class MultiRankBot:
         def on_game_finished(winner: int):
             self.active_game_logic = None
             self.is_running = False
-            print(f"[MultiRankBot:{self.bot_name}] 4-Player Match finished!")
+            self.match_status = "finished"
+            print(f"[MultiRankBot:{self.bot_name}] 4-Player Match ({self.game_type}) finished! Winner: Player {winner}")
+            if self.on_exit_callback:
+                try:
+                    res = self.on_exit_callback()
+                    if asyncio.iscoroutine(res):
+                        asyncio.create_task(res)
+                except Exception:
+                    pass
             if self.auto_exit_after_match:
                 asyncio.create_task(self._shutdown_and_exit())
 
@@ -159,10 +169,41 @@ class MultiRankBot:
     async def _shutdown_and_exit(self):
         await asyncio.sleep(0.5)
         if self.queue_sio and self.queue_sio.connected:
-            await self.queue_sio.disconnect()
+            try:
+                await self.queue_sio.disconnect()
+            except Exception:
+                pass
         if self.active_session:
-            await self.active_session.disconnect()
-        sys.exit(0)
+            try:
+                await self.active_session.disconnect()
+            except Exception:
+                pass
+        self.is_running = False
+        self.match_status = "finished"
+        if self.on_exit_callback:
+            try:
+                res = self.on_exit_callback()
+                if asyncio.iscoroutine(res):
+                    await res
+            except Exception:
+                pass
+        else:
+            sys.exit(0)
+
+    async def stop(self):
+        """Cleanly stops the multi-rank bot and disconnects all sockets."""
+        self.is_running = False
+        self.match_status = "stopped"
+        if self.active_session:
+            try:
+                await self.active_session.disconnect()
+            except Exception:
+                pass
+        if self.queue_sio and self.queue_sio.connected:
+            try:
+                await self.queue_sio.disconnect()
+            except Exception:
+                pass
 
     async def run(self):
         print("=" * 65)
@@ -171,13 +212,34 @@ class MultiRankBot:
         print(f"  Difficulty Level: {self.level}")
         print("=" * 65)
 
-        await self.queue_sio.connect(
-            SERVER_WS_URL,
-            namespaces=["/multi-queue"],
-            auth={"token": self.token, "game_type": self.game_type},
-        )
-
         self.is_running = True
+        connected = False
+        retry_count = 0
+        max_retries = 3
+
+        while self.is_running and not connected and retry_count < max_retries:
+            try:
+                retry_count += 1
+                print(f"\n[MultiRankBot:{self.bot_name}] Connecting to /multi-queue ({self.game_type}) (Attempt {retry_count}/{max_retries})...")
+                await self.queue_sio.connect(
+                    SERVER_WS_URL,
+                    namespaces=["/multi-queue"],
+                    auth={"token": self.token, "game_type": self.game_type},
+                )
+                connected = True
+            except Exception as e:
+                print(f"[MultiRankBot:{self.bot_name}] Connection attempt {retry_count} failed: {e}")
+                if retry_count < max_retries and self.is_running:
+                    await asyncio.sleep(2.0)
+                else:
+                    self.is_running = False
+                    raise
+
+        if not connected:
+            self.is_running = False
+            return
+
+        print(f"[MultiRankBot:{self.bot_name}] Ready! Waiting in 4-Player queue for opponents...\n")
         try:
             while self.is_running:
                 await asyncio.sleep(0.5)

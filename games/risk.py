@@ -11,9 +11,12 @@ import random
 from typing import Any, Dict, List, Optional
 
 try:
-    from Bots.games.base_game import BaseGameLogic
+    from .base_game import BaseGameLogic
 except ImportError:
-    from games.base_game import BaseGameLogic
+    try:
+        from bots.games.base_game import BaseGameLogic
+    except ImportError:
+        from games.base_game import BaseGameLogic
 
 
 CONTINENT_ADJACENCY: Dict[str, List[str]] = {

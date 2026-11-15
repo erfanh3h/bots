@@ -21,7 +21,9 @@ from .games import (
     get_game_logic,
     register_game,
 )
-from .modes import GameSession, LobbyBot, RankBot
+from .modes import GameSession, LobbyBot, RankBot, MultiRankBot
+from .social import SocialBot, RealUserManager
+from .manager import BotManager
 
 # Backward-compatibility & convenience aliases
 BaseGameBot = LobbyBot
@@ -59,4 +61,8 @@ __all__ = [
     "CoupBot",
     "MonopolyGameLogic",
     "MonopolyBot",
+    "SocialBot",
+    "RealUserManager",
+    "MultiRankBot",
+    "BotManager",
 ]

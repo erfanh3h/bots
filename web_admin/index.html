@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پنل مدیریت و تست ربات‌های کافه فکر | Cafe Fekr Bot Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            900: '#4c1d95',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Vazirmatn', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        .active-tab {
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="bg-zinc-900 border-b border-zinc-800 px-6 py-3.5 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-xl shadow-lg shadow-brand-500/20">
+                    ☕
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg font-bold text-white tracking-wide">سرور و پنل مدیریت ربات‌های کافه فکر</h1>
+                        <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs px-2 py-0.5 rounded-full font-mono font-medium">Port 5003</span>
+                    </div>
+                    <p class="text-xs text-zinc-400">Cafe Fekr Autonomous Bot Backend & Realtime Control Center</p>
+                </div>
+            </div>
+
+            <!-- Service Status Indicators -->
+            <div class="flex items-center flex-wrap gap-2.5 text-xs">
+                <div id="status-mongo" class="flex items-center gap-1.5 bg-zinc-800/80 px-2.5 py-1.5 rounded-lg border border-zinc-700/60">
+                    <span class="w-2 h-2 rounded-full bg-zinc-500 animate-pulse"></span>
+                    <span class="text-zinc-400 font-mono">Mongo:27017</span>
+                </div>
+                <div id="status-backend" class="flex items-center gap-1.5 bg-zinc-800/80 px-2.5 py-1.5 rounded-lg border border-zinc-700/60">
+                    <span class="w-2 h-2 rounded-full bg-zinc-500 animate-pulse"></span>
+                    <span class="text-zinc-400 font-mono">Backend:5000</span>
+                </div>
+                <div id="status-rest" class="flex items-center gap-1.5 bg-zinc-800/80 px-2.5 py-1.5 rounded-lg border border-zinc-700/60">
+                    <span class="w-2 h-2 rounded-full bg-zinc-500 animate-pulse"></span>
+                    <span class="text-zinc-400 font-mono">REST:5001</span>
+                </div>
+                <div id="status-bots" class="flex items-center gap-1.5 bg-emerald-950/60 text-emerald-400 px-2.5 py-1.5 rounded-lg border border-emerald-700/50">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span class="font-mono">Bots Server:5003</span>
+                </div>
+
+                <button onclick="stopAllBots()" class="bg-rose-600/90 hover:bg-rose-600 text-white font-medium px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow shadow-rose-900/30">
+                    <span>🛑</span>
+                    <span>توقف تمام ربات‌ها</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-zinc-900/90 border-b border-zinc-800 px-6 backdrop-blur">
+        <div class="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto py-2" id="nav-tabs">
+            <button onclick="switchTab('dashboard')" class="tab-btn active-tab px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
+                <span>📊</span> داشبورد و وضعیت
+            </button>
+            <button onclick="switchTab('lobby')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
+                <span>🚪</span> ربات لابی (ورود به اتاق)
+            </button>
+            <button onclick="switchTab('rank')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
+                <span>🏆</span> ربات رنک (۱به۱ و ۴نفره)
+            </button>
+            <button onclick="switchTab('social')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
+                <span>👥</span> سیستم اجتماعی و تست
+            </button>
+            <button onclick="switchTab('engines')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
+                <span>⚙️</span> تست هوش موتورها (۲۵ بازی)
+            </button>
+            <button onclick="switchTab('console')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
+                <span>💻</span> کنسول و لاگ زنده
+                <span id="log-badge" class="bg-blue-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">0</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto w-full flex-1 p-6 space-y-6">
+
+        <!-- ================================================================= -->
+        <!-- TAB 1: DASHBOARD & OVERVIEW -->
+        <!-- ================================================================= -->
+        <section id="tab-dashboard" class="space-y-6">
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-zinc-400">ربات‌های فعال فعلی</p>
+                        <h3 id="stat-active-bots" class="text-2xl font-bold text-white mt-1">0</h3>
+                    </div>
+                    <div class="w-11 h-11 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center text-xl">🤖</div>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-zinc-400">تعداد موتورهای بازی ثبت‌شده</p>
+                        <h3 id="stat-games-count" class="text-2xl font-bold text-emerald-400 mt-1">25 بازی</h3>
+                    </div>
+                    <div class="w-11 h-11 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center text-xl">🎮</div>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-zinc-400">پرسوناها و کاربران واقعی</p>
+                        <h3 id="stat-personas-count" class="text-2xl font-bold text-purple-400 mt-1">--</h3>
+                    </div>
+                    <div class="w-11 h-11 bg-purple-500/10 text-purple-400 rounded-xl flex items-center justify-center text-xl">👤</div>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-zinc-400">اتصال لاگ زنده وب‌سوکت</p>
+                        <h3 id="stat-ws-status" class="text-sm font-bold text-amber-400 mt-1 font-mono">در حال اتصال...</h3>
+                    </div>
+                    <div class="w-11 h-11 bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center text-xl">⚡</div>
+                </div>
+            </div>
+
+            <!-- Quick Launch Center -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                        <span>⚡</span> پرتاب سریع ربات‌ها (Quick Launch)
+                    </h2>
+                    <span class="text-xs text-zinc-400">با یک کلیک ربات دلخواه را در حالت مناسب اجرا کنید</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button onclick="quickLaunchLobby('TicTacToe')" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg">⭕</span>
+                            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono">Lobby</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-blue-400">ربات دوز (TicTacToe)</h4>
+                        <p class="text-xs text-zinc-500 mt-0.5">آماده اتصال و پذیرش در لابی</p>
+                    </button>
+                    <button onclick="quickLaunchLobby('Chess')" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg">♟️</span>
+                            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono">Lobby</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-blue-400">ربات شطرنج (Chess)</h4>
+                        <p class="text-xs text-zinc-500 mt-0.5">ورود به لابی شطرنج</p>
+                    </button>
+                    <button onclick="quickLaunchRank()" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg">⚔️</span>
+                            <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono">Rank 1v1</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-amber-400">ربات صف رنک اصلی</h4>
+                        <p class="text-xs text-zinc-500 mt-0.5">پیک و بن هوشمند و سری بازی</p>
+                    </button>
+                    <button onclick="quickLaunchMulti('Ludo')" class="bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-right transition group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg">🏁</span>
+                            <span class="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-mono">Multi 4P</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-zinc-200 mt-2 group-hover:text-purple-400">ربات رنک منچ (Ludo)</h4>
+                        <p class="text-xs text-zinc-500 mt-0.5">صف ۴ نفره چندنفره</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Bots Table -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        ربات‌های در حال اجرای سرور
+                    </h3>
+                    <span id="active-bots-badge" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full font-mono">0 bot active</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-zinc-950 text-zinc-400 border-b border-zinc-800 font-medium">
+                            <tr>
+                                <th class="p-3">شناسه ربات (ID)</th>
+                                <th class="p-3">حالت (Type)</th>
+                                <th class="p-3">بازی</th>
+                                <th class="p-3">حساب / پرسونا</th>
+                                <th class="p-3">سطح هوش</th>
+                                <th class="p-3">وضعیت</th>
+                                <th class="p-3">زمان شروع</th>
+                                <th class="p-3 text-center">عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bots-table-body" class="divide-y divide-zinc-800">
+                            <tr>
+                                <td colspan="8" class="p-6 text-center text-zinc-500">هیچ رباتی در حال حاضر اجرا نشده است. از منوهای بالا رباتی را اجرا کنید.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 2: LOBBY BOTS -->
+        <!-- ================================================================= -->
+        <section id="tab-lobby" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Launch Controls -->
+                <div class="lg:col-span-1 bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>🚪</span> پیکربندی و ورود ربات به لابی
+                    </h2>
+                    <p class="text-xs text-zinc-400">ربات لابی به عنوان بازیکن لول ۱ (مبتدی / انسانی) وارد بازی شده و آماده رقابت دوستانه می‌شود.</p>
+
+                    <!-- Game Selector -->
+                    <div>
+                        <label class="block text-xs font-medium text-zinc-300 mb-1">انتخاب بازی (از بین ۲۵ بازی):</label>
+                        <select id="lobby-game-select" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none focus:border-blue-500">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Persona Selector -->
+                    <div>
+                        <label class="block text-xs font-medium text-zinc-300 mb-1">اکانت / پرسونای ربات:</label>
+                        <select id="lobby-persona-select" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none focus:border-blue-500">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Mode of Lobby Entry -->
+                    <div class="space-y-2 pt-2 border-t border-zinc-800">
+                        <label class="block text-xs font-medium text-zinc-300">روش ورود به لابی:</label>
+                        <div class="space-y-1.5">
+                            <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                                <input type="radio" name="lobby-mode" value="auto" checked onchange="toggleLobbyMode()" class="text-blue-600 focus:ring-0">
+                                <span>حالت اتوماتیک (گوش به زنگ / جوین و آماده‌باش خودکار در هر اتاقی که ساخته شود)</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                                <input type="radio" name="lobby-mode" value="specific" onchange="toggleLobbyMode()" class="text-blue-600 focus:ring-0">
+                                <span>ورود مستقیم به یک اتاق مشخص با شناسه (Lobby ID)</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                                <input type="radio" name="lobby-mode" value="create" onchange="toggleLobbyMode()" class="text-blue-600 focus:ring-0">
+                                <span>ربات خودش اتاق جدید بسازد تا کاربر انسانی وارد شود!</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Specific Lobby ID Input -->
+                    <div id="lobby-specific-box" class="space-y-2 hidden bg-zinc-950 p-3 rounded-lg border border-zinc-800">
+                        <label class="block text-xs font-medium text-zinc-300">شناسه اتاق (Lobby ID):</label>
+                        <input id="lobby-target-id" type="text" placeholder="مثال: 673... یا نام اتاق" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 font-mono">
+                    </div>
+
+                    <!-- Create Lobby Fields -->
+                    <div id="lobby-create-box" class="space-y-2 hidden bg-zinc-950 p-3 rounded-lg border border-zinc-800">
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-300 mb-1">نام اتاق:</label>
+                            <input id="lobby-create-name" type="text" value="اتاق چالش با ربات" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-300 mb-1">تعداد بازیکنان:</label>
+                                <select id="lobby-create-count" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                                    <option value="2">۲ نفره</option>
+                                    <option value="4">۴ نفره</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-300 mb-1">رمز اتاق (اختیاری):</label>
+                                <input id="lobby-create-pass" type="text" placeholder="بدون رمز" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Auto Exit Toggle -->
+                    <div class="flex items-center justify-between pt-2 border-t border-zinc-800 text-xs">
+                        <span class="text-zinc-400">خروج خودکار پس از پایان بازی:</span>
+                        <input id="lobby-auto-exit" type="checkbox" class="w-4 h-4 rounded text-blue-600 bg-zinc-800 border-zinc-700">
+                    </div>
+
+                    <button onclick="launchLobbyBot()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                        <span>🚀</span> ورود / شروع ربات لابی
+                    </button>
+                </div>
+
+                <!-- Live Open Rooms in Server -->
+                <div class="lg:col-span-2 bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <span>📡</span> اسکن و مشاهده اتاق‌های باز سرور (/lobby)
+                            </h3>
+                            <p class="text-xs text-zinc-400 mt-0.5">اتاق‌هایی که بازیکنان واقعی هم‌اکنون در بازی ساخته‌اند را ببینید و با یک کلیک ربات بفرستید</p>
+                        </div>
+                        <button onclick="scanLiveLobbies()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                            <span>🔄</span> اسکن مجدد
+                        </button>
+                    </div>
+
+                    <!-- Room List -->
+                    <div id="live-lobbies-container" class="space-y-2.5 min-h-[220px]">
+                        <div class="p-8 text-center text-zinc-500 bg-zinc-950/60 border border-zinc-800/80 rounded-xl">
+                            در حال اسکن اتاق‌های سرور...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 3: RANK BOTS -->
+        <!-- ================================================================= -->
+        <section id="tab-rank" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 1v1 Main Rank -->
+                <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">⚔️</span>
+                            <div>
+                                <h3 class="text-base font-bold text-white">ربات رنک اصلی (1v1 Main Rank)</h3>
+                                <p class="text-xs text-zinc-400">مبتنی بر سیستم صف /queue، پذیرش مسابقه، پیک و بن ۷ مرحله‌ای و سری بازی Best-of-3</p>
+                            </div>
+                        </div>
+                        <span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs px-2.5 py-1 rounded font-mono">Level 2</span>
+                    </div>
+
+                    <div class="space-y-3 bg-zinc-950 p-4 rounded-xl border border-zinc-800/80">
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-300 mb-1">اکانت / پرسونای ربات:</label>
+                            <select id="rank-1v1-persona" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-300 mb-1">سطح دشواری هوش مصنوعی:</label>
+                            <select id="rank-1v1-level" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                                <option value="2" selected>سطح ۲ (متوسط رقابتی - استاندارد رنک)</option>
+                                <option value="1">سطح ۱ (مبتدی / ساده)</option>
+                                <option value="3">سطح ۳ (حرفه‌ای / چالش سنگین)</option>
+                            </select>
+                        </div>
+
+                        <div class="p-3 bg-zinc-900 rounded-lg text-xs space-y-1 text-zinc-400">
+                            <div class="flex items-center gap-2 text-zinc-200 font-medium">
+                                <span>🎯</span> منطق استراتژیک شبیه‌سازی پیک و بن:
+                            </div>
+                            <p>• بن‌های اولویت‌دار ربات: شطرنج، تخته نرد، سودوکو، مین‌یاب، نبرد کشتی</p>
+                            <p>• پیک‌های اولویت‌دار ربات: اتللو، دوز چهارتایی، پنتاگو، یاتزی، چکرز</p>
+                            <p>• زمان فکر کردن طبیعی انسان: بین ۲.۰ تا ۳.۸ ثانیه</p>
+                        </div>
+
+                        <button onclick="launchRank1v1()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition shadow-lg shadow-amber-600/20 flex items-center justify-center gap-2">
+                            <span>🎮</span> ورود ربات به صف مسابقه رنک (Enter Queue)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4-Player Multi Rank -->
+                <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🏁</span>
+                            <div>
+                                <h3 class="text-base font-bold text-white">ربات رنک چندنفره (Multi-Queue 4P)</h3>
+                                <p class="text-xs text-zinc-400">ورود به صف /multi-queue برای بازی‌های ۴ نفره گروهی</p>
+                            </div>
+                        </div>
+                        <span class="bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs px-2.5 py-1 rounded font-mono">4-Player</span>
+                    </div>
+
+                    <div class="space-y-3 bg-zinc-950 p-4 rounded-xl border border-zinc-800/80">
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-300 mb-1">انتخاب بازی ۴ نفره:</label>
+                            <select id="multi-game-select" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                                <option value="Ludo">منچ (Ludo)</option>
+                                <option value="Risk">ریسک استرایک (Risk Strike)</option>
+                                <option value="Uno">اونو (Uno Card Game)</option>
+                                <option value="Coup">کودتا (Coup Strategy)</option>
+                                <option value="Monopoly">مونوپولی (Monopoly)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-300 mb-1">اکانت / پرسونای ربات:</label>
+                            <select id="multi-persona-select" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-300 mb-1">سطح بازی:</label>
+                            <select id="multi-level-select" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                                <option value="2" selected>سطح ۲ (استاندارد)</option>
+                                <option value="1">سطح ۱ (مبتدی)</option>
+                            </select>
+                        </div>
+
+                        <div class="p-3 bg-zinc-900 rounded-lg text-xs space-y-1 text-zinc-400">
+                            <p>• ربات در نیم‌اسپیس <code class="text-purple-300 font-mono">/multi-queue</code> منتظر ۴ بازیکن می‌ماند و با ارسال <code class="text-purple-300 font-mono">StartGame</code> مستقیماً وارد بازی <code class="text-purple-300 font-mono">/game</code> می‌شود.</p>
+                        </div>
+
+                        <button onclick="launchMultiRank()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2">
+                            <span>👥</span> ورود به صف چندنفره (Enter Multi-Queue)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 4: SOCIAL & COMMUNITY -->
+        <!-- ================================================================= -->
+        <section id="tab-social" class="space-y-6 hidden">
+            <!-- Automated Test Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 p-5 rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-white text-base flex items-center gap-2">
+                            <span>⚡</span> تست جامع تشخیصی (Full Diagnostic)
+                        </h3>
+                        <span class="text-xs bg-brand-500/20 text-brand-400 px-2 py-0.5 rounded font-mono">Suite</span>
+                    </div>
+                    <p class="text-xs text-zinc-400">اجرای اتوماتیک تمام بخش‌های اجتماعی (پروفایل، دوستان، چت، دعوت مسابقه، کلن و اعلانات) با ارائه گزارش ماتریسی.</p>
+                    <div class="flex items-center gap-3">
+                        <select id="diag-actor" class="bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 flex-1">
+                            <!-- Populated -->
+                        </select>
+                        <button onclick="runSocialDiagnostic()" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-xs font-semibold transition">
+                            اجرای تست جامع
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 p-5 rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-white text-base flex items-center gap-2">
+                            <span>🔄</span> تست تعامل دونفره (Peer-to-Peer Flow)
+                        </h3>
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono">Live Flow</span>
+                    </div>
+                    <p class="text-xs text-zinc-400">اجرای سناریوی کامل تعامل دو کاربر واقعی: درخواست دوستی -> پذیرش -> چت دونفره -> دعوت بازی -> پست در کلن.</p>
+                    <div class="flex items-center gap-2">
+                        <select id="peer-actor-a" class="bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 flex-1"></select>
+                        <span class="text-zinc-500">↔</span>
+                        <select id="peer-actor-b" class="bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 flex-1"></select>
+                        <button onclick="runPeerFlow()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-semibold transition">
+                            اجرای جریان
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Operations Playground -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span>🎮</span> آزمایشگاه دستی عملیات اجتماعی (Interactive Playground)
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <!-- Friends -->
+                    <div class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3">
+                        <h4 class="font-semibold text-xs text-blue-400 flex items-center gap-1.5">
+                            <span>🤝</span> دوستان (Friends)
+                        </h4>
+                        <input id="social-friend-target" type="text" placeholder="شناسه کاربر مقصد (User ID)" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs font-mono">
+                        <div class="space-y-1.5">
+                            <button onclick="triggerSocial('friends', 'send_request')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">ارسال درخواست دوستی</button>
+                            <button onclick="triggerSocial('friends', 'list_requests')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">مشاهده درخواست‌های ورودی</button>
+                            <button onclick="triggerSocial('friends', 'list_friends')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">لیست دوستان فعلی</button>
+                        </div>
+                    </div>
+
+                    <!-- Direct Messages -->
+                    <div class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3">
+                        <h4 class="font-semibold text-xs text-emerald-400 flex items-center gap-1.5">
+                            <span>💬</span> پیام خصوصی (DMs)
+                        </h4>
+                        <input id="social-dm-target" type="text" placeholder="شناسه کاربر مقصد" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs font-mono">
+                        <input id="social-dm-text" type="text" value="سلام! وقت بازی داری؟" placeholder="متن پیام..." class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs">
+                        <div class="space-y-1.5">
+                            <button onclick="triggerSocial('messages', 'send_dm')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">ارسال پیام خصوصی</button>
+                            <button onclick="triggerSocial('messages', 'get_dm_history')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">دریافت تاریخچه چت</button>
+                        </div>
+                    </div>
+
+                    <!-- Invitations -->
+                    <div class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3">
+                        <h4 class="font-semibold text-xs text-purple-400 flex items-center gap-1.5">
+                            <span>💌</span> دعوت به مسابقه (Invites)
+                        </h4>
+                        <input id="social-invite-target" type="text" placeholder="شناسه کاربر مقصد" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs font-mono">
+                        <select id="social-invite-game" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs">
+                            <option value="TicTacToe">دوز (TicTacToe)</option>
+                            <option value="Chess">شطرنج (Chess)</option>
+                            <option value="BackGammon">تخته نرد (BackGammon)</option>
+                            <option value="Monopoly">مونوپولی (Monopoly)</option>
+                        </select>
+                        <button onclick="triggerSocial('invitations', 'send_game_invite')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">ارسال دعوت‌نامه بازی</button>
+                        <button onclick="triggerSocial('invitations', 'list_pending_invites')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">لیست دعوت‌های دریافتی</button>
+                    </div>
+
+                    <!-- Clans -->
+                    <div class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3">
+                        <h4 class="font-semibold text-xs text-amber-400 flex items-center gap-1.5">
+                            <span>🛡️</span> کلن و چت گروهی (Clans)
+                        </h4>
+                        <input id="social-clan-msg" type="text" value="سلام به همگی اعضای کلن!" placeholder="پیام کلن..." class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs">
+                        <button onclick="triggerSocial('clans', 'get_my_clan')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">مشاهده کلن من</button>
+                        <button onclick="triggerSocial('clans', 'send_chat')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">ارسال پیام به چت کلن</button>
+                        <button onclick="triggerSocial('clans', 'search_clans')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">جستجوی کلن‌ها</button>
+                    </div>
+                </div>
+
+                <!-- Result Box -->
+                <div class="mt-4">
+                    <label class="block text-xs font-medium text-zinc-400 mb-1">نتیجه آخرین عملیات اجتماعی (JSON Response):</label>
+                    <pre id="social-result-box" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-mono text-zinc-300 max-h-48 overflow-y-auto">// نتیجه تست در اینجا نمایش داده می‌شود...</pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 5: GAME ENGINE LAB -->
+        <!-- ================================================================= -->
+        <section id="tab-engines" class="space-y-6 hidden">
+            <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>⚙️</span> آزمایشگاه هوش و منطق بازی‌ها (۲۵ بازی)
+                        </h3>
+                        <p class="text-xs text-zinc-400">تست مستقیم موتورهای محاسباتی هوش مصنوعی بدون نیاز به شبکه و سوکت برای اعتبارسنجی سرعت و حرکت‌ها.</p>
+                    </div>
+                </div>
+
+                <!-- Games Grid -->
+                <div id="engine-games-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Benchmark Result Modal/Card -->
+                <div id="engine-test-result" class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 hidden">
+                    <h4 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                        <span>✅</span> نتیجه تست عملکرد موتور
+                    </h4>
+                    <pre id="engine-result-json" class="mt-2 text-xs font-mono text-zinc-300"></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 6: LIVE CONSOLE -->
+        <!-- ================================================================= -->
+        <section id="tab-console" class="space-y-4 hidden flex-1 flex flex-col min-h-[500px]">
+            <div class="flex items-center justify-between bg-zinc-900 border border-zinc-800 p-3 rounded-xl flex-wrap gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-zinc-400">فیلتر ربات:</span>
+                    <select id="log-bot-filter" onchange="renderLogs()" class="bg-zinc-800 border border-zinc-700 text-xs text-zinc-200 rounded p-1.5">
+                        <option value="all">تمام ربات‌ها و سیستم (All)</option>
+                    </select>
+
+                    <span class="text-xs text-zinc-400">سطح لاگ:</span>
+                    <select id="log-level-filter" onchange="renderLogs()" class="bg-zinc-800 border border-zinc-700 text-xs text-zinc-200 rounded p-1.5">
+                        <option value="all">همه سطوح (All)</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARN">WARN</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer">
+                        <input id="auto-scroll-check" type="checkbox" checked class="rounded bg-zinc-800 text-blue-600">
+                        <span>اسکرول خودکار</span>
+                    </label>
+                    <button onclick="clearLogs()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded text-xs transition">
+                        پاکسازی لاگ‌ها
+                    </button>
+                </div>
+            </div>
+
+            <!-- Terminal Output Box -->
+            <div id="terminal-box" class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-4 font-mono text-xs overflow-y-auto space-y-1 text-zinc-300 min-h-[450px]">
+                <div class="text-zinc-600">// کنسول زنده متصل شد. گزارش لحظه‌ای ربات‌ها در اینجا ثبت می‌شود...</div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-zinc-900/80 border-t border-zinc-800 px-6 py-3 text-center text-xs text-zinc-500">
+        Cafe Fekr Autonomous Bot Infrastructure &copy; 2026 — Designed for high-concurrency matchmaking & automated game validation.
+    </footer>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 left-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- Client Script Logic -->
+    <script>
+        let allGames = [];
+        let allPersonas = [];
+        let allBots = [];
+        let allLogs = [];
+        let logSocket = null;
+        let statsInterval = null;
+
+        // ---------------------------------------------------------------------
+        // TAB SWITCHING
+        // ---------------------------------------------------------------------
+        function switchTab(tabId) {
+            const tabs = ['dashboard', 'lobby', 'rank', 'social', 'engines', 'console'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) el.classList.add('hidden');
+            });
+            const activeEl = document.getElementById(`tab-${tabId}`);
+            if (activeEl) activeEl.classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active-tab');
+                const onclickAttr = btn.getAttribute('onclick') || '';
+                if (onclickAttr.includes(`'${tabId}'`)) {
+                    btn.classList.add('active-tab');
+                }
+            });
+
+            if (tabId === 'lobby') scanLiveLobbies();
+        }
+
+        function toggleLobbyMode() {
+            const mode = document.querySelector('input[name="lobby-mode"]:checked').value;
+            document.getElementById('lobby-specific-box').classList.toggle('hidden', mode !== 'specific');
+            document.getElementById('lobby-create-box').classList.toggle('hidden', mode !== 'create');
+        }
+
+        // ---------------------------------------------------------------------
+        // TOAST NOTIFICATIONS
+        // ---------------------------------------------------------------------
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bg = type === 'error' ? 'bg-rose-600' : (type === 'success' ? 'bg-emerald-600' : 'bg-blue-600');
+            toast.className = `${bg} text-white text-xs px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `<span>${type === 'error' ? '⚠️' : '✅'}</span><span>${msg}</span>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // ---------------------------------------------------------------------
+        // INITIAL DATA LOADING
+        // ---------------------------------------------------------------------
+        async function initDashboard() {
+            try {
+                // 1. Fetch Games
+                const gamesRes = await fetch('/api/games');
+                allGames = await gamesRes.json();
+                populateGameSelectors();
+
+                // 2. Fetch Personas
+                const personasRes = await fetch('/api/personas');
+                allPersonas = await personasRes.json();
+                populatePersonaSelectors();
+
+                // 3. Connect Live Logs WS
+                connectLogWebSocket();
+
+                // 4. Initial Stats & Heartbeat Loop
+                await fetchSystemStatus();
+                statsInterval = setInterval(fetchSystemStatus, 2500);
+
+            } catch (err) {
+                console.error("Initialization error:", err);
+                showToast("خطا در بارگذاری اولیه پنل مدیریت", "error");
+            }
+        }
+
+        function populateGameSelectors() {
+            const lobbySelect = document.getElementById('lobby-game-select');
+            lobbySelect.innerHTML = allGames.map(g => `<option value="${g.name}">${g.icon} ${g.fa} (${g.name})</option>`).join('');
+
+            // Engine lab grid
+            const grid = document.getElementById('engine-games-grid');
+            grid.innerHTML = allGames.map(g => `
+                <button onclick="testEngine('${g.name}')" class="bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 p-3 rounded-xl text-center transition group">
+                    <span class="text-2xl block mb-1">${g.icon}</span>
+                    <span class="text-xs font-semibold text-zinc-200 block group-hover:text-blue-400">${g.fa}</span>
+                    <span class="text-[10px] text-zinc-500 font-mono">${g.name}</span>
+                </button>
+            `).join('');
+
+            document.getElementById('stat-games-count').innerText = `${allGames.length} بازی فعال`;
+        }
+
+        function populatePersonaSelectors() {
+            const selects = ['lobby-persona-select', 'rank-1v1-persona', 'multi-persona-select', 'diag-actor', 'peer-actor-a', 'peer-actor-b'];
+            selects.forEach((id, idx) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.innerHTML = allPersonas.map((p, pIdx) => {
+                        const sel = (id === 'peer-actor-b' && pIdx === 1) ? 'selected' : '';
+                        return `<option value="${p._id || p.username}" ${sel}>${p.display_name || p.username}</option>`;
+                    }).join('');
+                }
+            });
+            document.getElementById('stat-personas-count').innerText = `${allPersonas.length} حساب`;
+        }
+
+        // ---------------------------------------------------------------------
+        // LIVE WEBSOCKET LOGS
+        // ---------------------------------------------------------------------
+        function connectLogWebSocket() {
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${proto}//${window.location.host}/ws/logs`;
+
+            logSocket = new WebSocket(wsUrl);
+
+            logSocket.onopen = () => {
+                document.getElementById('stat-ws-status').innerText = 'متصل (Live WS)';
+                document.getElementById('stat-ws-status').className = 'text-xs font-bold text-emerald-400 font-mono mt-1';
+            };
+
+            logSocket.onmessage = (event) => {
+                try {
+                    const entry = JSON.parse(event.data);
+                    allLogs.push(entry);
+                    if (allLogs.length > 1500) allLogs.shift();
+                    document.getElementById('log-badge').innerText = allLogs.length;
+                    appendLogLine(entry);
+                } catch (e) {
+                    console.error("WS Parse error", e);
+                }
+            };
+
+            logSocket.onclose = () => {
+                document.getElementById('stat-ws-status').innerText = 'قطع شده (تلاش مجدد...)';
+                document.getElementById('stat-ws-status').className = 'text-xs font-bold text-rose-400 font-mono mt-1';
+                setTimeout(connectLogWebSocket, 3000);
+            };
+        }
+
+        function appendLogLine(entry) {
+            const botFilter = document.getElementById('log-bot-filter').value;
+            const levelFilter = document.getElementById('log-level-filter').value;
+
+            if (botFilter !== 'all' && entry.bot_id !== botFilter) return;
+            if (levelFilter !== 'all' && entry.level !== levelFilter) return;
+
+            const box = document.getElementById('terminal-box');
+            const row = document.createElement('div');
+            row.className = 'leading-relaxed hover:bg-zinc-900/60 px-1 rounded flex items-start gap-2';
+
+            const levelColor = entry.level === 'ERROR' ? 'text-rose-400' : (entry.level === 'WARN' ? 'text-amber-400' : 'text-zinc-500');
+            row.innerHTML = `
+                <span class="text-zinc-600 select-none">${entry.time}</span>
+                <span class="${levelColor} font-semibold text-[11px] select-none">[${entry.level}]</span>
+                <span class="text-blue-400 text-[11px] select-none">#${entry.bot_id}</span>
+                <span class="text-zinc-300 flex-1">${escapeHtml(entry.message)}</span>
+            `;
+            box.appendChild(row);
+
+            if (document.getElementById('auto-scroll-check').checked) {
+                box.scrollTop = box.scrollHeight;
+            }
+        }
+
+        function renderLogs() {
+            const box = document.getElementById('terminal-box');
+            box.innerHTML = '';
+            allLogs.forEach(appendLogLine);
+        }
+
+        function clearLogs() {
+            allLogs = [];
+            document.getElementById('terminal-box').innerHTML = '<div class="text-zinc-600">// کنسول پاکسازی شد...</div>';
+            document.getElementById('log-badge').innerText = '0';
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // ---------------------------------------------------------------------
+        // SYSTEM HEALTH & ACTIVE BOTS
+        // ---------------------------------------------------------------------
+        async function fetchSystemStatus() {
+            try {
+                const res = await fetch('/api/system/status');
+                const data = await res.json();
+
+                // Update services
+                updateServiceBadge('status-mongo', data.services?.mongodb?.status === 'online', 'Mongo:27017');
+                updateServiceBadge('status-backend', data.services?.backend_ws?.status === 'online', 'Backend:5000');
+                updateServiceBadge('status-rest', data.services?.rest_server?.status === 'online', 'REST:5001');
+
+                // Update bots
+                const botsRes = await fetch('/api/bots');
+                allBots = await botsRes.json();
+                renderBotsTable(allBots);
+
+            } catch (err) {
+                console.error("Status fetch error", err);
+            }
+        }
+
+        function updateServiceBadge(id, isOnline, label) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const dot = el.querySelector('span:first-child');
+            const txt = el.querySelector('span:last-child');
+            txt.innerText = `${label} (${isOnline ? 'Online' : 'Offline'})`;
+            if (isOnline) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+                el.className = 'flex items-center gap-1.5 bg-emerald-950/40 text-emerald-300 px-2.5 py-1.5 rounded-lg border border-emerald-800/40';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+                el.className = 'flex items-center gap-1.5 bg-rose-950/30 text-rose-300 px-2.5 py-1.5 rounded-lg border border-rose-800/30';
+            }
+        }
+
+        function renderBotsTable(bots) {
+            const tbody = document.getElementById('bots-table-body');
+            document.getElementById('stat-active-bots').innerText = bots.filter(b => ['running', 'in_queue', 'pre_game', 'playing'].includes(b.status)).length;
+            document.getElementById('active-bots-badge').innerText = `${bots.length} ربات ثبت‌شده`;
+
+            // Update log filter options
+            const filterEl = document.getElementById('log-bot-filter');
+            const currentSel = filterEl.value;
+            filterEl.innerHTML = '<option value="all">تمام ربات‌ها و سیستم (All)</option>' +
+                bots.map(b => `<option value="${b.bot_id}">${b.bot_id} (${b.game_type})</option>`).join('');
+            filterEl.value = currentSel;
+
+            if (!bots.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-zinc-500">هیچ رباتی در حال حاضر اجرا نشده است. از منوهای بالا رباتی را اجرا کنید.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = bots.map(b => {
+                const isRunning = ['running', 'in_queue', 'pre_game', 'playing'].includes(b.status);
+                const statusColor = isRunning ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : (b.status === 'error' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-zinc-800 text-zinc-400 border-zinc-700');
+                return `
+                    <tr class="hover:bg-zinc-900/60 font-mono">
+                        <td class="p-3 font-semibold text-zinc-200">${b.bot_id}</td>
+                        <td class="p-3 text-zinc-400">${b.bot_type}</td>
+                        <td class="p-3 text-zinc-300">${b.game_type}</td>
+                        <td class="p-3 text-purple-400">${b.persona?.username || 'Bot'}</td>
+                        <td class="p-3">Level ${b.level}</td>
+                        <td class="p-3">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] ${statusColor}">
+                                ${isRunning ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>' : ''}
+                                ${b.status}
+                            </span>
+                        </td>
+                        <td class="p-3 text-zinc-500 text-[11px]">${b.started_at}</td>
+                        <td class="p-3 text-center">
+                            ${isRunning ? `
+                                <button onclick="stopBot('${b.bot_id}')" class="bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1 rounded text-[11px] transition">
+                                    توقف
+                                </button>
+                            ` : `<span class="text-zinc-600">-</span>`}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ---------------------------------------------------------------------
+        // BOT ACTIONS
+        // ---------------------------------------------------------------------
+        async function launchLobbyBot() {
+            const gameType = document.getElementById('lobby-game-select').value;
+            const persona = document.getElementById('lobby-persona-select').value;
+            const mode = document.querySelector('input[name="lobby-mode"]:checked').value;
+            const autoExit = document.getElementById('lobby-auto-exit').checked;
+
+            try {
+                if (mode === 'create') {
+                    const name = document.getElementById('lobby-create-name').value;
+                    const count = parseInt(document.getElementById('lobby-create-count').value);
+                    const password = document.getElementById('lobby-create-pass').value;
+
+                    const res = await fetch('/api/bots/lobby/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ game_type: gameType, lobby_name: name, count, password, persona_spec: persona })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                    }
+                    const d = await res.json();
+                    showToast(`اتاق لابی با موفقیت ساخته شد (#${d.bot_id})`, 'success');
+                } else {
+                    const targetId = mode === 'specific' ? document.getElementById('lobby-target-id').value : null;
+                    const res = await fetch('/api/bots/lobby/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ game_type: gameType, persona_spec: persona, target_lobby_id: targetId, auto_exit: autoExit })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                    }
+                    const d = await res.json();
+                    showToast(`ربات لابی '${gameType}' با موفقیت اجرا شد (#${d.bot_id})`, 'success');
+                }
+                fetchSystemStatus();
+                switchTab('console');
+            } catch (err) {
+                showToast("خطا در اجرای ربات لابی: " + err.message, 'error');
+            }
+        }
+
+        async function launchRank1v1() {
+            const persona = document.getElementById('rank-1v1-persona').value;
+            const level = parseInt(document.getElementById('rank-1v1-level').value);
+
+            try {
+                const res = await fetch('/api/bots/rank/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ persona_spec: persona, level: level, auto_exit: false })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                showToast(`ربات رنک ۱به۱ وارد صف مسابقه شد (#${d.bot_id})`, 'success');
+                fetchSystemStatus();
+                switchTab('console');
+            } catch (err) {
+                showToast("خطا در ورود به صف رنک: " + err.message, 'error');
+            }
+        }
+
+        async function launchMultiRank() {
+            const gameType = document.getElementById('multi-game-select').value;
+            const persona = document.getElementById('multi-persona-select').value;
+            const level = parseInt(document.getElementById('multi-level-select').value);
+
+            try {
+                const res = await fetch('/api/bots/multi-rank/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_type: gameType, persona_spec: persona, level: level, auto_exit: false })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                showToast(`ربات ۴ نفره '${gameType}' وارد صف مسابقه شد (#${d.bot_id})`, 'success');
+                fetchSystemStatus();
+                switchTab('console');
+            } catch (err) {
+                showToast("خطا در ورود به صف چندنفره: " + err.message, 'error');
+            }
+        }
+
+        async function quickLaunchLobby(game) {
+            try {
+                const res = await fetch('/api/bots/lobby/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_type: game })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                showToast(`پرتاب سریع: ربات لابی ${game} آماده شد!`, 'success');
+                fetchSystemStatus();
+                switchTab('console');
+            } catch (err) {
+                showToast("خطا در اجرای پرتاب سریع: " + err.message, 'error');
+            }
+        }
+
+        async function quickLaunchRank() {
+            try {
+                const res = await fetch('/api/bots/rank/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ level: 2 })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                showToast(`پرتاب سریع: ربات رنک وارد صف مسابقه شد!`, 'success');
+                fetchSystemStatus();
+                switchTab('console');
+            } catch (err) {
+                showToast("خطا در اجرای رنک: " + err.message, 'error');
+            }
+        }
+
+        async function quickLaunchMulti(game) {
+            try {
+                const res = await fetch('/api/bots/multi-rank/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_type: game, level: 2 })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                showToast(`پرتاب سریع: ربات ${game} وارد صف ۴ نفره شد!`, 'success');
+                fetchSystemStatus();
+                switchTab('console');
+            } catch (err) {
+                showToast("خطا در اجرای صف چندنفره: " + err.message, 'error');
+            }
+        }
+
+        async function stopBot(botId) {
+            try {
+                const res = await fetch(`/api/bots/${botId}/stop`, { method: 'POST' });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                showToast(`ربات #${botId} متوقف شد`, 'info');
+                fetchSystemStatus();
+            } catch (err) {
+                showToast("خطا در توقف ربات: " + err.message, 'error');
+            }
+        }
+
+        async function stopAllBots() {
+            try {
+                const res = await fetch('/api/bots/stop-all', { method: 'POST' });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                showToast(`${d.stopped_count} ربات با موفقیت متوقف شدند`, 'info');
+                fetchSystemStatus();
+            } catch (err) {
+                showToast("خطا در متوقف کردن ربات‌ها: " + err.message, 'error');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // SCAN OPEN LOBBIES
+        // ---------------------------------------------------------------------
+        async function scanLiveLobbies() {
+            const container = document.getElementById('live-lobbies-container');
+            container.innerHTML = '<div class="p-6 text-center text-zinc-500">در حال دریافت لیست لابی‌ها از سرور ۵۰۰۰...</div>';
+            try {
+                const res = await fetch('/api/lobbies');
+                const lobbies = await res.json();
+
+                if (!lobbies.length) {
+                    container.innerHTML = `
+                        <div class="p-8 text-center text-zinc-500 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-2">
+                            <span class="text-3xl block">📭</span>
+                            <p>در حال حاضر هیچ اتاق بازی بازی در سرور باز نیست.</p>
+                            <p class="text-[11px] text-zinc-600">می‌توانید از بازی گودوت (یا پنل بالا) اتاقی بسازید تا بلافاصله در اینجا لیست شود.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = lobbies.map(l => `
+                    <div class="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex items-center justify-between hover:border-zinc-700 transition">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h4 class="font-bold text-zinc-100 text-sm">${l.lobby_name || 'اتاق بازی'}</h4>
+                                <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded font-mono">${l.game_type}</span>
+                            </div>
+                            <div class="text-xs text-zinc-400 mt-1 flex items-center gap-3">
+                                <span>سازنده: <strong class="text-zinc-300 font-mono">${l.creator_id || 'نامشخص'}</strong></span>
+                                <span>ظرفیت: <strong>${l.queuers_length || (l.queuers ? l.queuers.length : 1)} / ${l.lobby_count || 2}</strong></span>
+                                <span class="font-mono text-zinc-500 text-[11px]">ID: ${l.lobby_id}</span>
+                            </div>
+                        </div>
+                        <button onclick="sendBotToLobby('${l.lobby_id}', '${l.game_type}')" class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow">
+                            ارسال ربات به این اتاق 🤖
+                        </button>
+                    </div>
+                `).join('');
+            } catch (err) {
+                container.innerHTML = '<div class="p-6 text-center text-rose-400">خطا در اسکن لابی‌ها (احتمالاً بک‌ند ۵۰۰۰ اجرا نیست)</div>';
+            }
+        }
+
+        async function sendBotToLobby(lobbyId, gameType) {
+            try {
+                const res = await fetch('/api/bots/lobby/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_type: gameType, target_lobby_id: lobbyId })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                showToast(`ربات برای ورود به اتاق ${lobbyId} ارسال شد!`, 'success');
+                fetchSystemStatus();
+                switchTab('console');
+            } catch (err) {
+                showToast("خطا در ارسال ربات به اتاق: " + err.message, 'error');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // SOCIAL AUTOMATION ACTIONS
+        // ---------------------------------------------------------------------
+        async function triggerSocial(category, action) {
+            const box = document.getElementById('social-result-box');
+            box.innerText = "// در حال ارسال درخواست به سرور REST (5001)...";
+
+            let params = {};
+            if (category === 'friends') {
+                params.target_user_id = document.getElementById('social-friend-target').value;
+            } else if (category === 'messages') {
+                params.target_user_id = document.getElementById('social-dm-target').value;
+                params.text = document.getElementById('social-dm-text').value;
+            } else if (category === 'invitations') {
+                params.target_user_id = document.getElementById('social-invite-target').value;
+                params.game_type = document.getElementById('social-invite-game').value;
+            } else if (category === 'clans') {
+                params.message = document.getElementById('social-clan-msg').value;
+            }
+
+            try {
+                const res = await fetch('/api/social/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        actor_spec: document.getElementById('diag-actor').value || 'akbari',
+                        category: category,
+                        action: action,
+                        params: params
+                    })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const data = await res.json();
+                box.innerText = JSON.stringify(data, null, 2);
+                showToast(`عملیات ${category}.${action} با موفقیت اجرا شد`, 'success');
+            } catch (err) {
+                box.innerText = `// خطا: ${err.message}`;
+                showToast("خطا در اجرای عملیات اجتماعی: " + err.message, 'error');
+            }
+        }
+
+        async function runSocialDiagnostic() {
+            const actor = document.getElementById('diag-actor').value;
+            const box = document.getElementById('social-result-box');
+            box.innerText = `// در حال اجرای تست جامع تشخیصی برای ${actor}...`;
+            try {
+                const res = await fetch('/api/social/diagnostic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ actor_spec: actor })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                box.innerText = JSON.stringify(d, null, 2);
+                showToast(`تست تشخیصی با موفقیت اجرا شد`, 'success');
+            } catch (err) {
+                box.innerText = `// خطا: ${err.message}`;
+                showToast("خطا در اجرای تست تشخیصی: " + err.message, 'error');
+            }
+        }
+
+        async function runPeerFlow() {
+            const actorA = document.getElementById('peer-actor-a').value;
+            const actorB = document.getElementById('peer-actor-b').value;
+            const box = document.getElementById('social-result-box');
+            box.innerText = `// در حال اجرای جریان تعاملی دونفره بین ${actorA} و ${actorB}...`;
+            try {
+                const res = await fetch('/api/social/peer-flow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ actor_a: actorA, actor_b: actorB })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                box.innerText = JSON.stringify(d, null, 2);
+                showToast(`جریان دونفره با موفقیت به پایان رسید`, 'success');
+                switchTab('console');
+            } catch (err) {
+                box.innerText = `// خطا: ${err.message}`;
+                showToast("خطا در اجرای جریان دونفره: " + err.message, 'error');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // GAME ENGINE LAB
+        // ---------------------------------------------------------------------
+        async function testEngine(gameName) {
+            try {
+                const res = await fetch('/api/games/test-engine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_type: gameName, level: 2 })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `خطای سرور: ${res.status}`);
+                }
+                const d = await res.json();
+                document.getElementById('engine-test-result').classList.remove('hidden');
+                document.getElementById('engine-result-json').innerText = JSON.stringify(d, null, 2);
+                showToast(`موتور ${gameName} در ${d.init_time_ms} میلی‌ثانیه تست شد!`, 'success');
+            } catch (err) {
+                showToast("خطا در تست موتور بازی: " + err.message, 'error');
+            }
+        }
+
+        // Window load
+        window.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>
