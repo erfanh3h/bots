@@ -90,6 +90,22 @@ class MultiRankStartRequest(BaseModel):
     count: int = 1  # Number of bots to launch (e.g. 1 to 4)
 
 
+class BotVsBotStartRequest(BaseModel):
+    game_type: str = "TicTacToe"
+    bot1_persona: Optional[str] = "akbari"
+    bot2_persona: Optional[str] = "Niliii22"
+    level1: int = 2
+    level2: int = 2
+    auto_watch: bool = True
+    players_count: int = 2
+
+
+class WatcherStartRequest(BaseModel):
+    game_id: Optional[str] = None
+    target_user_id: Optional[str] = None
+    persona_spec: Optional[str] = "default"
+
+
 class SocialActionRequest(BaseModel):
     actor_spec: str = "akbari"
     category: str
@@ -243,6 +259,55 @@ async def start_multi_rank_bot(req: MultiRankStartRequest):
         return first_dict
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# -----------------------------------------------------------------------------
+# Bot vs Bot Match & Watcher / Spectator API
+# -----------------------------------------------------------------------------
+
+@app.post("/api/bots/bot-vs-bot/start", summary="Start Bot vs Bot Autonomous Match")
+async def start_bot_vs_bot_match(req: BotVsBotStartRequest):
+    try:
+        res = await manager.start_bot_vs_bot(
+            game_type=req.game_type,
+            bot1_persona=req.bot1_persona,
+            bot2_persona=req.bot2_persona,
+            level1=req.level1,
+            level2=req.level2,
+            auto_watch=req.auto_watch,
+            players_count=req.players_count,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/bots/watcher/start", summary="Start Watcher Bot to Spectate Live Match")
+async def start_watcher_bot(req: WatcherStartRequest):
+    try:
+        m_bot = await manager.start_watcher_bot(
+            game_id=req.game_id,
+            target_user_id=req.target_user_id,
+            persona_spec=req.persona_spec,
+        )
+        return m_bot.to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/spectate/games", summary="Scan Live Games Available for Spectating")
+async def scan_live_spectate_games():
+    return await manager.fetch_live_spectatable_games()
+
+
+@app.get("/api/bots/{bot_id}/watcher-state", summary="Get Live Spectator State for Watcher Bot")
+async def get_watcher_bot_state(bot_id: str):
+    if bot_id not in manager.bots:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    m_bot = manager.bots[bot_id]
+    if hasattr(m_bot.instance, "get_state"):
+        return m_bot.instance.get_state()
+    return m_bot.to_dict()
 
 
 # -----------------------------------------------------------------------------

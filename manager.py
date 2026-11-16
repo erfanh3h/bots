@@ -26,6 +26,7 @@ from bots.games import get_game_logic, list_supported_games
 from bots.modes.lobby_bot import LobbyBot
 from bots.modes.rank_bot import RankBot, TWO_PLAYER_GAMES
 from bots.modes.multi_rank_bot import MultiRankBot
+from bots.modes.watcher_bot import WatcherBot
 from bots.social.auth_helper import RealUserManager, REAL_USER_PROFILES
 from bots.social.social_bot import SocialBot
 from bots.social.runner import run_peer_flow_test
@@ -618,6 +619,379 @@ class BotManager:
                 await asyncio.sleep(0.35)
 
         return launched
+
+    async def start_bot_vs_bot(
+        self,
+        game_type: str,
+        bot1_persona: Optional[str | Dict] = None,
+        bot2_persona: Optional[str | Dict] = None,
+        level1: int = 2,
+        level2: int = 2,
+        auto_watch: bool = False,
+        players_count: int = 2,
+    ) -> Dict[str, Any]:
+        """
+        Launches a complete Bot vs Bot match:
+        1. Allocates distinct personas for Bot 1 (Host) and Bot 2 (Challenger).
+        2. Bot 1 creates a private lobby with auto_start_when_full=True.
+        3. Bot 2 joins the exact lobby.
+        4. Bot 1 starts the game upon full capacity.
+        5. If auto_watch=True, spawns a WatcherBot to spectate the match live!
+        """
+        count = max(2, min(4, players_count))
+        allocated = self.allocate_distinct_personas(count=count, primary_spec=bot1_persona or "default")
+        if bot2_persona and len(allocated) >= 2:
+            p2, tok2 = self.resolve_persona_and_token(bot2_persona)
+            if str(p2.get("_id", "")) != str(allocated[0][0].get("_id", "")):
+                allocated[1] = (p2, tok2)
+
+        p1, token1 = allocated[0]
+        p2, token2 = allocated[1]
+
+        self.counter += 1
+        room_name = f"BvB_{game_type}_{self.counter}"
+        b1_id = f"bvb_p1_{game_type.lower()}_{self.counter}"
+        b2_id = f"bvb_p2_{game_type.lower()}_{self.counter}"
+
+        # 1. Setup Host Bot (Bot 1)
+        m_bot1 = ManagedBot(
+            bot_id=b1_id,
+            bot_type="bot_vs_bot",
+            game_type=game_type,
+            persona=p1,
+            token=token1,
+            level=level1,
+            auto_exit=True,
+        )
+        self.bots[b1_id] = m_bot1
+
+        bot1_instance = LobbyBot(
+            game_logic_or_type=game_type,
+            token=token1,
+            auto_exit_after_match=True,
+            level=level1,
+            auto_start_when_full=True,
+        )
+        bot1_instance.my_user_id = str(p1.get("_id", BOT_USER_ID))
+        bot1_instance.bot_phone = str(p1.get("phone", BOT_PHONE))
+        bot1_instance.bot_name = str(p1.get("username", "Bot1_Host"))
+        m_bot1.instance = bot1_instance
+
+        # 2. Setup Challenger Bot (Bot 2)
+        m_bot2 = ManagedBot(
+            bot_id=b2_id,
+            bot_type="bot_vs_bot",
+            game_type=game_type,
+            persona=p2,
+            token=token2,
+            level=level2,
+            auto_exit=True,
+        )
+        self.bots[b2_id] = m_bot2
+
+        bot2_instance = LobbyBot(
+            game_logic_or_type=game_type,
+            token=token2,
+            auto_exit_after_match=True,
+            level=level2,
+            auto_start_when_full=False,
+        )
+        bot2_instance.my_user_id = str(p2.get("_id", BOT_USER_ID))
+        bot2_instance.bot_phone = str(p2.get("phone", BOT_PHONE))
+        bot2_instance.bot_name = str(p2.get("username", "Bot2_Player"))
+        m_bot2.instance = bot2_instance
+
+        lobby_id_future = asyncio.get_running_loop().create_future()
+
+        def b1_exit():
+            m_bot1.status = "finished"
+            m_bot1.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.add_log(f"[{b1_id}] Bot vs Bot match concluded for Player 1.", bot_id=b1_id)
+        bot1_instance.on_exit_callback = b1_exit
+
+        def b2_exit():
+            m_bot2.status = "finished"
+            m_bot2.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.add_log(f"[{b2_id}] Bot vs Bot match concluded for Player 2.", bot_id=b2_id)
+        bot2_instance.on_exit_callback = b2_exit
+
+        async def run_bot1():
+            m_bot1.status = "running"
+            self.add_log(f"[{b1_id}] Bot 1 (Host) creating '{room_name}' ({game_type}, Level {level1}) as '{p1.get('username')}'", bot_id=b1_id)
+            try:
+                run_task = asyncio.create_task(bot1_instance.run())
+                for _ in range(60):
+                    if bot1_instance.lobby_sio and "/lobby" in bot1_instance.lobby_sio.namespaces:
+                        await asyncio.sleep(0.2)
+                        await bot1_instance.create_lobby_room(
+                            lobby_name=room_name,
+                            game_type=game_type,
+                            count=count,
+                            password="",
+                        )
+                        break
+                    await asyncio.sleep(0.1)
+
+                for _ in range(60):
+                    if bot1_instance.active_lobby_id:
+                        if not lobby_id_future.done():
+                            lobby_id_future.set_result(bot1_instance.active_lobby_id)
+                        break
+                    await asyncio.sleep(0.1)
+
+                await run_task
+            except asyncio.CancelledError:
+                m_bot1.status = "stopped"
+            except Exception as e:
+                m_bot1.status = "error"
+                m_bot1.detail = str(e)
+                self.add_log(f"[{b1_id}] Bot 1 error: {e}", level="ERROR", bot_id=b1_id)
+                if not lobby_id_future.done():
+                    lobby_id_future.set_exception(e)
+            finally:
+                if m_bot1.status not in ("finished", "stopped", "error"):
+                    m_bot1.status = "stopped"
+                m_bot1.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        async def run_bot2():
+            m_bot2.status = "starting"
+            try:
+                target_room_id = await asyncio.wait_for(asyncio.shield(lobby_id_future), timeout=10.0)
+                m_bot2.status = "running"
+                self.add_log(f"[{b2_id}] Bot 2 joining room '{target_room_id}' (Level {level2}) as '{p2.get('username')}'", bot_id=b2_id)
+                bot2_instance.target_lobby_id = target_room_id
+                run_task = asyncio.create_task(bot2_instance.run())
+
+                for _ in range(60):
+                    if bot2_instance.lobby_sio and "/lobby" in bot2_instance.lobby_sio.namespaces:
+                        await asyncio.sleep(0.3)
+                        await bot2_instance.join_specific_lobby(target_room_id)
+                        break
+                    await asyncio.sleep(0.1)
+
+                await run_task
+            except asyncio.CancelledError:
+                m_bot2.status = "stopped"
+            except Exception as e:
+                m_bot2.status = "error"
+                m_bot2.detail = str(e)
+                self.add_log(f"[{b2_id}] Bot 2 error: {e}", level="ERROR", bot_id=b2_id)
+            finally:
+                if m_bot2.status not in ("finished", "stopped", "error"):
+                    m_bot2.status = "stopped"
+                m_bot2.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        m_bot1.task = asyncio.create_task(run_bot1())
+        m_bot2.task = asyncio.create_task(run_bot2())
+
+        extra_bots = []
+        if count >= 3 and len(allocated) >= 3:
+            for extra_idx in range(2, count):
+                p_extra, tok_extra = allocated[extra_idx]
+                bx_id = f"bvb_p{extra_idx+1}_{game_type.lower()}_{self.counter}"
+                m_bx = ManagedBot(
+                    bot_id=bx_id,
+                    bot_type="bot_vs_bot",
+                    game_type=game_type,
+                    persona=p_extra,
+                    token=tok_extra,
+                    level=level2,
+                    auto_exit=True,
+                )
+                self.bots[bx_id] = m_bx
+                bx_instance = LobbyBot(
+                    game_logic_or_type=game_type,
+                    token=tok_extra,
+                    auto_exit_after_match=True,
+                    level=level2,
+                    auto_start_when_full=False,
+                )
+                bx_instance.my_user_id = str(p_extra.get("_id", BOT_USER_ID))
+                bx_instance.bot_name = str(p_extra.get("username", f"Bot{extra_idx+1}"))
+                m_bx.instance = bx_instance
+                extra_bots.append(m_bx)
+
+                def make_extra_runner(cur_m, cur_inst, cur_id, cur_p, c_idx):
+                    async def run_extra():
+                        cur_m.status = "starting"
+                        try:
+                            target_room_id = await asyncio.wait_for(asyncio.shield(lobby_id_future), timeout=10.0)
+                            cur_m.status = "running"
+                            self.add_log(f"[{cur_id}] Bot {c_idx+1} joining room '{target_room_id}' as '{cur_p.get('username')}'", bot_id=cur_id)
+                            cur_inst.target_lobby_id = target_room_id
+                            r_task = asyncio.create_task(cur_inst.run())
+                            for _ in range(60):
+                                if cur_inst.lobby_sio and "/lobby" in cur_inst.lobby_sio.namespaces:
+                                    await asyncio.sleep(0.3 * c_idx)
+                                    await cur_inst.join_specific_lobby(target_room_id)
+                                    break
+                                await asyncio.sleep(0.1)
+                            await r_task
+                        except Exception as e:
+                            cur_m.status = "error"
+                        finally:
+                            if cur_m.status not in ("finished", "stopped", "error"):
+                                cur_m.status = "stopped"
+                    return run_extra
+
+                m_bx.task = asyncio.create_task(make_extra_runner(m_bx, bx_instance, bx_id, p_extra, extra_idx)())
+
+        if auto_watch:
+            async def spawn_auto_watcher():
+                for _ in range(150):
+                    if bot1_instance.active_game_id:
+                        gid = bot1_instance.active_game_id
+                        await asyncio.sleep(1.0)
+                        self.add_log(f"[AutoWatcher] Match started with Game ID '{gid}'. Spawning Watcher Bot...", level="INFO")
+                        await self.start_watcher_bot(game_id=gid)
+                        break
+                    await asyncio.sleep(0.1)
+            asyncio.create_task(spawn_auto_watcher())
+
+        try:
+            await asyncio.wait_for(asyncio.shield(lobby_id_future), timeout=2.5)
+            lobby_id = lobby_id_future.result()
+        except Exception:
+            lobby_id = None
+
+        return {
+            "status": "started",
+            "game_type": game_type,
+            "room_name": room_name,
+            "lobby_id": lobby_id or bot1_instance.active_lobby_id,
+            "bot1": m_bot1.to_dict(),
+            "bot2": m_bot2.to_dict(),
+            "extra_bots": [b.to_dict() for b in extra_bots],
+            "auto_watch": auto_watch,
+        }
+
+    async def start_watcher_bot(
+        self,
+        game_id: Optional[str] = None,
+        target_user_id: Optional[str] = None,
+        persona_spec: Optional[str | Dict] = None,
+    ) -> ManagedBot:
+        """Starts a WatcherBot joining an active match on /social as a spectator."""
+        self.counter += 1
+        watcher_id = f"watcher_{self.counter}"
+
+        persona, token = self.resolve_persona_and_token(persona_spec)
+        active_uids = {
+            str(b.persona.get("_id", ""))
+            for b in self.bots.values()
+            if b.status in ("starting", "running", "in_queue", "playing", "watching")
+        }
+        if str(persona.get("_id", "")) in active_uids and not persona_spec:
+            for p in self.get_personas():
+                if str(p.get("_id", "")) not in active_uids:
+                    persona, token = self.resolve_persona_and_token(p)
+                    break
+
+        m_bot = ManagedBot(
+            bot_id=watcher_id,
+            bot_type="watcher",
+            game_type="Spectate",
+            persona=persona,
+            token=token,
+            level=0,
+            auto_exit=True,
+        )
+        self.bots[watcher_id] = m_bot
+
+        watcher_instance = WatcherBot(
+            target_game_id=game_id,
+            target_user_id=target_user_id,
+            token=token,
+            auto_leave_on_end=True,
+        )
+        watcher_instance.my_user_id = str(persona.get("_id", BOT_USER_ID))
+        watcher_instance.bot_name = str(persona.get("username", "ربات ناظر"))
+        m_bot.instance = watcher_instance
+
+        def on_exit():
+            m_bot.status = watcher_instance.status
+            m_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.add_log(f"[{watcher_id}] Watcher concluded: {watcher_instance.status}", bot_id=watcher_id)
+
+        watcher_instance.on_exit_callback = on_exit
+
+        def on_move_event(event_data):
+            cmd_name = event_data.get("id", "Move")
+            m_bot.status = "watching"
+            if watcher_instance.game_type and m_bot.game_type == "Spectate":
+                m_bot.game_type = watcher_instance.game_type
+            self.add_log(f"[{watcher_id}] 👁️ [Move #{watcher_instance.moves_count}] {cmd_name} in Match '{watcher_instance.active_game_id}'", bot_id=watcher_id)
+
+        watcher_instance.on_event_callback = on_move_event
+
+        async def run_wrapper():
+            m_bot.status = "connecting"
+            target_desc = f"Game '{game_id}'" if game_id else f"User '{target_user_id}'"
+            self.add_log(f"[{watcher_id}] Watcher Bot starting to spectate {target_desc} as '{persona.get('username')}'", bot_id=watcher_id)
+            try:
+                await watcher_instance.run()
+            except asyncio.CancelledError:
+                m_bot.status = "stopped"
+                self.add_log(f"[{watcher_id}] Watcher Bot cancelled.", bot_id=watcher_id)
+            except Exception as e:
+                m_bot.status = "error"
+                m_bot.detail = str(e)
+                self.add_log(f"[{watcher_id}] Watcher Bot error: {e}", level="ERROR", bot_id=watcher_id)
+            finally:
+                if m_bot.status not in ("finished", "stopped", "error", "rejected"):
+                    m_bot.status = watcher_instance.status or "stopped"
+                m_bot.finished_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        m_bot.task = asyncio.create_task(run_wrapper())
+        return m_bot
+
+    async def fetch_live_spectatable_games(self) -> List[Dict[str, Any]]:
+        """Scans for active spectatable matches on the backend and currently running bots."""
+        results = []
+        seen_gids = set()
+
+        for b in self.bots.values():
+            if b.status in ("running", "playing") and hasattr(b.instance, "active_game_id") and b.instance.active_game_id:
+                gid = str(b.instance.active_game_id)
+                if gid not in seen_gids:
+                    seen_gids.add(gid)
+                    results.append({
+                        "game_id": gid,
+                        "game_type": b.game_type,
+                        "spectator_count": getattr(b.instance, "spectator_count", 0),
+                        "players": [{"user_id": str(b.persona.get("_id", "")), "username": b.persona.get("username", "Bot")}],
+                        "source": "active_bot_match",
+                    })
+
+        try:
+            from bots.social.auth_helper import RealUserManager
+            db = RealUserManager.get_db()
+            if db is not None:
+                users_with_game = list(db["users"].find({"open_game_id": {"$exists": True, "$ne": ""}}, {"username": 1, "open_game_id": 1, "image": 1, "score": 1}))
+                grouped: Dict[str, List] = {}
+                for u in users_with_game:
+                    gid = str(u.get("open_game_id", ""))
+                    if gid:
+                        grouped.setdefault(gid, []).append({
+                            "user_id": str(u.get("_id", "")),
+                            "username": u.get("username", "کاربر"),
+                            "image": int(u.get("image", 0) or 0),
+                            "score": int(u.get("score", 0) or 0),
+                        })
+                for gid, players in grouped.items():
+                    if gid not in seen_gids:
+                        seen_gids.add(gid)
+                        results.append({
+                            "game_id": gid,
+                            "game_type": "Live Match",
+                            "spectator_count": 0,
+                            "players": players,
+                            "source": "database_live",
+                        })
+        except Exception:
+            pass
+
+        return results
 
     async def stop_bot(self, bot_id: str) -> bool:
         """Cleanly stops a specific running bot."""

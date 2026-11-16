@@ -56,7 +56,7 @@ else:
 class LobbyBot:
     """
     Bot driver dedicated to the /lobby matchmaking system.
-    Strictly plays at Level 1 (easiest / casual beginner human).
+    Plays at the configured Level (default 1 for casual, or 2/3 for Bot vs Bot challenges).
     """
 
     def __init__(
@@ -64,13 +64,15 @@ class LobbyBot:
         game_logic_or_type: BaseGameLogic | str,
         token: Optional[str] = None,
         auto_exit_after_match: bool = True,
+        level: int = 1,
+        auto_start_when_full: bool = False,
     ):
-        # Enforce Level 1 for all lobby bots
+        self.level = max(1, min(3, level))
         if isinstance(game_logic_or_type, str):
-            self.game_logic: BaseGameLogic = get_game_logic(game_logic_or_type, level=1)
+            self.game_logic: BaseGameLogic = get_game_logic(game_logic_or_type, level=self.level)
         else:
             self.game_logic: BaseGameLogic = game_logic_or_type
-            self.game_logic.level = 1  # Strictly Level 1 for lobby bots
+            self.game_logic.level = self.level
 
         self.token = token or os.environ.get("BOT_TOKEN") or get_auth_token()
         token_claims = decode_token_payload(self.token)
@@ -78,10 +80,13 @@ class LobbyBot:
         self.bot_phone = str(token_claims.get("phone", BOT_PHONE))
         self.bot_name = str(token_claims.get("username", f"ربات {self.game_logic.game_type}"))
         self.auto_exit_after_match = auto_exit_after_match
+        self.auto_start_when_full = auto_start_when_full
 
         self.target_lobby_id: Optional[str] = None
         self.on_exit_callback: Optional[Callable] = None
         self.is_running = False
+        self.is_host = False
+        self._start_sent = False
         self.active_lobby_id: Optional[str] = None
         self.active_game_id: Optional[str] = None
         self.is_ready: bool = False
@@ -131,17 +136,30 @@ class LobbyBot:
 
         elif cmd_id == "LobbyData":
             self.active_lobby_id = payload.get("lobby_id")
-            if not self.is_ready:
-                self.is_ready = True
-                print(f"[Lobby] Inside room: {self.active_lobby_id}. Automatically sending Player Ready...")
-                await asyncio.sleep(0.3)
-                await self.emit_lobby("user_command", {"id": "LobbyPlayerReady", "data": {}})
-                print("[Lobby] Status: AUTO-READY! Waiting for host to click Start Match...")
+            creator_id = payload.get("creator_id")
+            queuers_length = payload.get("queuers_length", len(payload.get("queuers", [])))
+            max_count = int(payload.get("lobby_count", 2) or 2)
+
+            if creator_id == self.my_user_id:
+                self.is_host = True
+                print(f"[Lobby] Bot is HOST of room: {self.active_lobby_id} ({queuers_length}/{max_count} players).")
+                if self.auto_start_when_full and queuers_length >= max_count:
+                    print(f"[Lobby] Room is full! Host auto-starting game in 0.8s...")
+                    asyncio.create_task(self._delayed_host_start_game())
+            else:
+                if not self.is_ready:
+                    self.is_ready = True
+                    print(f"[Lobby] Inside room: {self.active_lobby_id}. Automatically sending Player Ready...")
+                    await asyncio.sleep(0.3)
+                    await self.emit_lobby("user_command", {"id": "LobbyPlayerReady", "data": {}})
+                    print("[Lobby] Status: AUTO-READY! Waiting for host to click Start Match...")
 
         elif cmd_id in ["LobbyDeleted", "LobbyKick", "LobbyFull", "LobbyNotExists"]:
             print(f"[Lobby] Left room or room unavailable ({cmd_id}).")
             self.active_lobby_id = None
             self.is_ready = False
+            self.is_host = False
+            self._start_sent = False
 
         elif cmd_id == "LobbyPlayerReady":
             ready_uid = payload.get("user_id")
@@ -149,15 +167,28 @@ class LobbyBot:
 
         elif cmd_id == "LobbyPlayersUpdate":
             queuers = payload.get("queuers", [])
-            print(f"[Lobby] Room update: {len(queuers)} player(s) present.")
+            count = payload.get("count", len(queuers))
+            max_count = int(payload.get("lobby_count", 2) or 2)
+            print(f"[Lobby] Room update: {count}/{max_count} player(s) present.")
+            if self.is_host and self.auto_start_when_full and count >= max_count:
+                print(f"[Lobby] Capacity reached ({count}/{max_count})! Host auto-starting game...")
+                asyncio.create_task(self._delayed_host_start_game())
 
         elif cmd_id == "StartGame":
             self.active_game_id = payload.get("game_id")
             print("\n" + "=" * 55)
-            print(f" [Lobby] Match Started by Host! Game ID: {self.active_game_id}")
-            print(f" [Lobby] Bot Playing Level: {self.game_logic.level} (Beginner / Casual Human)")
+            print(f" [Lobby] Match Started! Game ID: {self.active_game_id}")
+            print(f" [Lobby] Bot Playing Level: {self.game_logic.level}")
             print("=" * 55)
             await self._start_game_session(self.active_game_id)
+
+    async def _delayed_host_start_game(self):
+        if self._start_sent:
+            return
+        self._start_sent = True
+        await asyncio.sleep(0.8)
+        print(f"[{self.game_logic.game_type} LobbyBot] Emitting LobbyStartGame command...")
+        await self.emit_lobby("user_command", {"id": "LobbyStartGame", "data": {}})
 
     async def try_join_lobby(self, lobby: dict):
         if self.active_lobby_id:

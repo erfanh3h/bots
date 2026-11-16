@@ -21,7 +21,7 @@ from .games import (
     get_game_logic,
     register_game,
 )
-from .modes import GameSession, LobbyBot, RankBot, MultiRankBot
+from .modes import GameSession, LobbyBot, RankBot, MultiRankBot, WatcherBot
 from .social import SocialBot, RealUserManager
 from .manager import BotManager
 
@@ -34,6 +34,7 @@ BattleShipBot = lambda **kw: LobbyBot("BattleShip", **kw)
 RiskBot = lambda **kw: LobbyBot("Risk", **kw)
 CoupBot = lambda **kw: LobbyBot("Coup", **kw)
 MonopolyBot = lambda **kw: LobbyBot("Monopoly", **kw)
+WatcherGameBot = WatcherBot
 
 __all__ = [
     "BOT_PHONE",
@@ -64,5 +65,6 @@ __all__ = [
     "SocialBot",
     "RealUserManager",
     "MultiRankBot",
+    "WatcherBot",
     "BotManager",
 ]
