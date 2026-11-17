@@ -131,6 +131,25 @@ class TokenGenerateRequest(BaseModel):
     user_spec: str = "akbari"
 
 
+class ClanJoinRequest(BaseModel):
+    actor_spec: str = "akbari"
+    clan_id: str
+    message: str = ""
+
+
+class ClanLeaveRequest(BaseModel):
+    actor_spec: str = "akbari"
+
+
+class ClanCreateRequest(BaseModel):
+    actor_spec: str = "akbari"
+    name: str = "کلن جدید"
+    tag: str = "NEW"
+    emblem_id: int = 1
+    description: str = ""
+    join_type: str = "open"
+
+
 # -----------------------------------------------------------------------------
 # Web Admin UI Routes
 # -----------------------------------------------------------------------------
@@ -378,6 +397,60 @@ async def run_peer_flow(req: PeerFlowRequest):
     try:
         res = await manager.run_peer_flow(actor_a=req.actor_a, actor_b=req.actor_b)
         return {"status": "ok", "result": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# -----------------------------------------------------------------------------
+# Clan Hub API
+# -----------------------------------------------------------------------------
+
+@app.get("/api/clans/my", summary="Get Current Clan of Actor")
+async def get_my_clan(actor_spec: str = "akbari"):
+    try:
+        return await manager.get_my_clan(actor_spec=actor_spec)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/clans/search", summary="Search Clans")
+async def search_clans(actor_spec: str = "akbari", q: str = ""):
+    try:
+        return await manager.search_clans(actor_spec=actor_spec, query=q)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/clans/join", summary="Join or Request to Join a Clan")
+async def join_clan(req: ClanJoinRequest):
+    try:
+        res = await manager.join_clan(actor_spec=req.actor_spec, clan_id=req.clan_id, message=req.message)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/clans/leave", summary="Leave Current Clan")
+async def leave_clan(req: ClanLeaveRequest):
+    try:
+        res = await manager.leave_clan(actor_spec=req.actor_spec)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/clans/create", summary="Create a New Clan")
+async def create_clan(req: ClanCreateRequest):
+    try:
+        res = await manager.create_clan(
+            actor_spec=req.actor_spec,
+            name=req.name,
+            tag=req.tag,
+            emblem_id=req.emblem_id,
+            description=req.description,
+            join_type=req.join_type,
+        )
+        return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -1145,6 +1145,19 @@ class BotManager:
             elif action == "search_clans":
                 q = params.get("query", "")
                 ok, st, data = bot.clans.search_clans(q)
+            elif action == "join_clan":
+                clan_id = params.get("clan_id", "")
+                msg = params.get("message", "")
+                ok, st, data = bot.clans.join_or_request(clan_id, message=msg)
+            elif action == "leave_clan":
+                ok, st, data = bot.clans.leave_clan()
+            elif action == "create_clan":
+                name = params.get("name", "کلن تستی")
+                tag = params.get("tag", "TEST")
+                emblem = int(params.get("emblem_id", 1))
+                desc = params.get("description", "")
+                jt = params.get("join_type", "open")
+                ok, st, data = bot.clans.create_clan(name, tag, emblem_id=emblem, description=desc, join_type=jt)
             elif action == "send_chat":
                 clan_id = params.get("clan_id")
                 msg = params.get("message", "پیام تستی از پنل ربات")
@@ -1178,6 +1191,44 @@ class BotManager:
         await loop.run_in_executor(None, run_peer_flow_test, actor_a, actor_b, SERVER_REST_URL)
         self.add_log(f"[Social] Peer Flow completed successfully.")
         return "Peer Flow Test Concluded"
+
+    # -------------------------------------------------------------------------
+    # Clan Operations Helpers
+    # -------------------------------------------------------------------------
+
+    async def get_my_clan(self, actor_spec: str = "akbari") -> Dict[str, Any]:
+        """Fetch current clan profile and memberships for actor."""
+        return await self.run_social_action(actor_spec, "clans", "get_my_clan")
+
+    async def search_clans(self, actor_spec: str = "akbari", query: str = "") -> Dict[str, Any]:
+        """Search available clans matching query."""
+        return await self.run_social_action(actor_spec, "clans", "search_clans", {"query": query})
+
+    async def join_clan(self, actor_spec: str = "akbari", clan_id: str = "", message: str = "") -> Dict[str, Any]:
+        """Join an open clan or request to join a closed clan."""
+        return await self.run_social_action(actor_spec, "clans", "join_clan", {"clan_id": clan_id, "message": message})
+
+    async def leave_clan(self, actor_spec: str = "akbari") -> Dict[str, Any]:
+        """Leave current clan membership."""
+        return await self.run_social_action(actor_spec, "clans", "leave_clan")
+
+    async def create_clan(
+        self,
+        actor_spec: str = "akbari",
+        name: str = "کلن جدید",
+        tag: str = "NEW",
+        emblem_id: int = 1,
+        description: str = "",
+        join_type: str = "open"
+    ) -> Dict[str, Any]:
+        """Create a new clan with the given actor as leader."""
+        return await self.run_social_action(actor_spec, "clans", "create_clan", {
+            "name": name,
+            "tag": tag,
+            "emblem_id": emblem_id,
+            "description": description,
+            "join_type": join_type,
+        })
 
     # -------------------------------------------------------------------------
     # Game Engine Tester

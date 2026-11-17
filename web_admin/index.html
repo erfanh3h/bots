@@ -112,6 +112,9 @@
             <button onclick="switchTab('social')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
                 <span>👥</span> سیستم اجتماعی و تست
             </button>
+            <button onclick="switchTab('clans')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
+                <span>🛡️</span> کلن‌ها (جستجو و عضویت)
+            </button>
             <button onclick="switchTab('engines')" class="tab-btn px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
                 <span>⚙️</span> تست هوش موتورها (۲۵ بازی)
             </button>
@@ -860,6 +863,7 @@
                         <button onclick="triggerSocial('clans', 'get_my_clan')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">مشاهده کلن من</button>
                         <button onclick="triggerSocial('clans', 'send_chat')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">ارسال پیام به چت کلن</button>
                         <button onclick="triggerSocial('clans', 'search_clans')" class="w-full bg-zinc-800 hover:bg-zinc-700 text-xs py-1.5 rounded transition">جستجوی کلن‌ها</button>
+                        <button onclick="switchTab('clans')" class="w-full bg-amber-600/80 hover:bg-amber-600 text-white text-xs py-1.5 rounded transition font-semibold">🛡️ رفتن به بخش اختصاصی جستجو و عضویت کلن</button>
                     </div>
                 </div>
 
@@ -872,7 +876,179 @@
         </section>
 
         <!-- ================================================================= -->
-        <!-- TAB 5: GAME ENGINE LAB -->
+        <!-- TAB 6: CLAN MANAGEMENT & DIRECTORY (JOIN & EXIT)                  -->
+        <!-- ================================================================= -->
+        <section id="tab-clans" class="space-y-6 hidden">
+            <!-- Header & Actor Selection -->
+            <div class="bg-gradient-to-r from-zinc-900 via-amber-950/20 to-zinc-900 border border-amber-900/30 p-5 rounded-xl space-y-4 shadow-lg">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>🛡️</span> سامانه مدیریت، جستجو و عضویت در کلن‌ها (Clans Hub)
+                        </h2>
+                        <p class="text-xs text-zinc-400 mt-1">
+                            امکان جستجو در میان کلن‌ها، انتخاب یکی از نتایج و عضویت مستقیم در آن، مشاهده جزئیات عضویت و خروج (Leave) آسان از کلن.
+                        </p>
+                    </div>
+
+                    <!-- Actor Selector -->
+                    <div class="flex items-center gap-2 bg-zinc-950/80 border border-zinc-800 p-2 rounded-lg">
+                        <label class="text-xs text-zinc-400 whitespace-nowrap">کاربر فعال:</label>
+                        <select id="clan-active-actor" onchange="refreshClanView()" class="bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-amber-500 font-mono">
+                            <!-- Populated dynamically with personas -->
+                        </select>
+                        <button onclick="refreshClanView()" class="bg-amber-600/90 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded transition flex items-center gap-1 font-medium">
+                            <span>🔄</span> بروزرسانی
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Clan Status Card -->
+            <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span>👑</span> وضعیت عضویت کاربر در کلن (Current Clan Status)
+                </h3>
+
+                <!-- In-Clan Card -->
+                <div id="clan-active-card" class="hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-amber-950/20 border border-amber-500/40 p-5 rounded-xl space-y-4 shadow">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl shadow-inner shadow-amber-500/20">
+                                🛡️
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 id="clan-active-name" class="text-base font-bold text-white">--</h4>
+                                    <span id="clan-active-tag" class="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold">#TAG</span>
+                                    <span id="clan-active-role" class="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-medium">عضو</span>
+                                </div>
+                                <p id="clan-active-desc" class="text-xs text-zinc-400 mt-1">توضیحات کلن...</p>
+                            </div>
+                        </div>
+
+                        <!-- Leave Clan Action Button -->
+                        <div>
+                            <button onclick="leaveCurrentClan()" id="clan-leave-btn" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition shadow shadow-rose-900/30">
+                                <span>🚪</span> خروج از این کلن (Leave Clan)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Clan Stats Row -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                        <div class="bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-lg">
+                            <div class="text-[10px] text-zinc-400">تعداد اعضا</div>
+                            <div id="clan-active-members" class="text-sm font-bold text-white mt-0.5">0 / 50</div>
+                        </div>
+                        <div class="bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-lg">
+                            <div class="text-[10px] text-zinc-400">مجموع کاپ / امتیاز</div>
+                            <div id="clan-active-score" class="text-sm font-bold text-amber-400 mt-0.5">0</div>
+                        </div>
+                        <div class="bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-lg">
+                            <div class="text-[10px] text-zinc-400">حداقل کاپ ورودی</div>
+                            <div id="clan-active-min-score" class="text-sm font-bold text-zinc-300 mt-0.5">0</div>
+                        </div>
+                        <div class="bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-lg">
+                            <div class="text-[10px] text-zinc-400">نوع عضویت</div>
+                            <div id="clan-active-jointype" class="text-sm font-bold text-emerald-400 mt-0.5">باز</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Not In Clan Banner -->
+                <div id="clan-none-card" class="bg-zinc-950 border border-zinc-800 p-6 rounded-xl text-center space-y-2">
+                    <div class="text-3xl">🏜️</div>
+                    <h4 class="text-sm font-bold text-zinc-300">این کاربر در حال حاضر عضو هیچ کلنی نیست</h4>
+                    <p class="text-xs text-zinc-500 max-w-md mx-auto">
+                        شما می‌توانید از بخش جستجوی زیر، کلن‌های موجود را مشاهده کرده و با کلیک روی دکمه «عضویت در این کلن» فوراً به آن ملحق شوید.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Search Clans & Select to Join Section -->
+            <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span>🔍</span> جستجو در دایرکتوری کلن‌ها و انتخاب برای عضویت
+                        </h3>
+                        <p class="text-xs text-zinc-400 mt-0.5">
+                            نام یا تگ کلن مورد نظر را وارد کرده و پس از جستجو، کلن دلخواه را انتخاب و عضو شوید.
+                        </p>
+                    </div>
+                    <span id="clan-search-count-badge" class="text-xs bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-full font-mono">
+                        -- کلن
+                    </span>
+                </div>
+
+                <!-- Search Input Bar -->
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <div class="relative flex-1">
+                        <input id="clan-search-input" type="text" placeholder="نام کلن یا تگ (مثلاً #AKBAAR) را وارد کنید، یا خالی بگذارید برای دریافت همه..."
+                               class="w-full bg-zinc-950 border border-zinc-800 rounded-lg pr-9 pl-3 py-2.5 text-xs text-zinc-200 focus:outline-none focus:border-amber-500"
+                               onkeydown="if(event.key==='Enter') searchClansUI()">
+                        <span class="absolute right-3 top-2.5 text-zinc-500 text-xs">🔍</span>
+                    </div>
+                    <button onclick="searchClansUI()" class="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs px-5 py-2.5 rounded-lg transition flex items-center justify-center gap-1.5 shadow shadow-amber-900/30">
+                        <span>🔍</span> جستجوی کلن‌ها
+                    </button>
+                    <button onclick="document.getElementById('clan-search-input').value=''; searchClansUI()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs px-4 py-2.5 rounded-lg transition">
+                        نمایش همه
+                    </button>
+                </div>
+
+                <!-- Search Results Grid -->
+                <div id="clan-search-results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    <!-- Populated dynamically via searchClansUI() -->
+                    <div class="col-span-full text-center py-8 text-zinc-500 text-xs">
+                        در حال بارگذاری کلن‌ها...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Optional: Create New Clan Collapsible -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+                <button onclick="document.getElementById('clan-create-accordion').classList.toggle('hidden')" class="w-full p-4 text-right flex items-center justify-between text-xs font-semibold text-zinc-300 hover:bg-zinc-800/50 transition">
+                    <span class="flex items-center gap-2">
+                        <span>➕</span> ساخت یک کلن تستی جدید (اختیاری)
+                    </span>
+                    <span class="text-zinc-500 font-mono text-[10px]">باز / بسته کردن ▼</span>
+                </button>
+                <div id="clan-create-accordion" class="hidden p-5 border-t border-zinc-800 bg-zinc-950/60 space-y-4">
+                    <p class="text-xs text-zinc-400">با این فرم می‌توانید کلن‌های جدیدی برای تست سناریوهای چندکلنی و پیوستن بازیکنان مختلف بسازید.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-[11px] text-zinc-400 mb-1">نام کلن:</label>
+                            <input id="clan-new-name" type="text" placeholder="مثلاً: بکس کافه فکر" value="کلن قهرمانان" class="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-zinc-400 mb-1">تگ کلن (Tag):</label>
+                            <input id="clan-new-tag" type="text" placeholder="مثلاً: HERO" value="HERO" class="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200 font-mono uppercase">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-zinc-400 mb-1">نوع عضویت:</label>
+                            <select id="clan-new-jointype" class="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                                <option value="open">عضویت آزاد (Open)</option>
+                                <option value="request">نیاز به تایید (Request)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-zinc-400 mb-1">توضیحات کلن:</label>
+                        <input id="clan-new-desc" type="text" placeholder="توضیحاتی برای معرفی کلن..." value="کلن پرقدرت برای تست رقابت‌های تیمی و دوستانه" class="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-xs text-zinc-200">
+                    </div>
+                    <div class="flex justify-end">
+                        <button onclick="createNewClanUI()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5 shadow shadow-emerald-900/30">
+                            <span>🛡️</span> ایجاد کلن
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 7: GAME ENGINE LAB -->
         <!-- ================================================================= -->
         <section id="tab-engines" class="space-y-6 hidden">
             <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
@@ -960,7 +1136,7 @@
         // TAB SWITCHING
         // ---------------------------------------------------------------------
         function switchTab(tabId) {
-            const tabs = ['dashboard', 'lobby', 'rank', 'bvb', 'watcher', 'social', 'engines', 'console'];
+            const tabs = ['dashboard', 'lobby', 'rank', 'bvb', 'watcher', 'social', 'clans', 'engines', 'console'];
             tabs.forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
                 if (el) el.classList.add('hidden');
@@ -978,6 +1154,7 @@
 
             if (tabId === 'lobby') scanLiveLobbies();
             if (tabId === 'watcher') scanLiveSpectateGames();
+            if (tabId === 'clans') refreshClanView();
         }
 
         function toggleLobbyMode() {
@@ -1077,7 +1254,7 @@
             const selects = [
                 'lobby-persona-select', 'rank-1v1-persona', 'multi-persona-select',
                 'bvb-bot1-persona', 'bvb-bot2-persona', 'watcher-persona-select',
-                'diag-actor', 'peer-actor-a', 'peer-actor-b'
+                'diag-actor', 'peer-actor-a', 'peer-actor-b', 'clan-active-actor'
             ];
             selects.forEach((id) => {
                 const el = document.getElementById(id);
@@ -1806,6 +1983,320 @@
                 box.innerText = `// خطا: ${err.message}`;
                 showToast("خطا در اجرای جریان دونفره: " + err.message, 'error');
             }
+        }
+
+        // ---------------------------------------------------------------------
+        // CLAN MANAGEMENT & DIRECTORY (SEARCH, SELECT & JOIN, EXIT)
+        // ---------------------------------------------------------------------
+        let currentClanData = null;
+
+        async function refreshClanView() {
+            const actor = document.getElementById('clan-active-actor')?.value || 'akbari';
+            const card = document.getElementById('clan-active-card');
+            const noneCard = document.getElementById('clan-none-card');
+
+            try {
+                const res = await fetch(`/api/clans/my?actor_spec=${encodeURIComponent(actor)}`);
+                if (!res.ok) {
+                    throw new Error(`خطای سرور: ${res.status}`);
+                }
+                const data = await res.json();
+                const clan = data?.data?.result?.clan || null;
+                const members = data?.data?.result?.members || [];
+
+                if (clan && clan._id) {
+                    currentClanData = clan;
+                    document.getElementById('clan-active-name').innerText = clan.name || 'بدون نام';
+                    document.getElementById('clan-active-tag').innerText = clan.tag || '#CLAN';
+                    document.getElementById('clan-active-desc').innerText = clan.description || 'بدون توضیحات';
+                    document.getElementById('clan-active-members').innerText = `${clan.member_count || members.length || 1} / ${clan.max_members || 50}`;
+                    document.getElementById('clan-active-score').innerText = (clan.clan_score || 0).toLocaleString();
+                    document.getElementById('clan-active-min-score').innerText = (clan.min_score || 0).toLocaleString();
+                    document.getElementById('clan-active-jointype').innerText = clan.join_type === 'open' ? 'عضویت آزاد' : 'نیازمند تایید';
+
+                    // Find user role
+                    let myRole = 'عضو';
+                    if (data?.data?.result?.my_role_fa) {
+                        myRole = data.data.result.my_role_fa;
+                    } else if (clan.leader_id === actor) {
+                        myRole = 'رهبر کلن';
+                    }
+                    document.getElementById('clan-active-role').innerText = myRole;
+
+                    if (card) card.classList.remove('hidden');
+                    if (noneCard) noneCard.classList.add('hidden');
+                } else {
+                    currentClanData = null;
+                    if (card) card.classList.add('hidden');
+                    if (noneCard) noneCard.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error("Error refreshing clan:", err);
+                currentClanData = null;
+                if (card) card.classList.add('hidden');
+                if (noneCard) noneCard.classList.remove('hidden');
+            }
+
+            // Also refresh clan search results
+            await searchClansUI();
+        }
+
+        async function searchClansUI() {
+            const actor = document.getElementById('clan-active-actor')?.value || 'akbari';
+            const query = document.getElementById('clan-search-input')?.value.trim() || '';
+            const resultsContainer = document.getElementById('clan-search-results');
+            const countBadge = document.getElementById('clan-search-count-badge');
+
+            if (resultsContainer) {
+                resultsContainer.innerHTML = `
+                    <div class="col-span-full text-center py-6 text-zinc-400 text-xs flex items-center justify-center gap-2">
+                        <span class="animate-spin text-amber-500">⏳</span> در حال جستجوی کلن‌ها در دایرکتوری...
+                    </div>
+                `;
+            }
+
+            try {
+                const res = await fetch(`/api/clans/search?actor_spec=${encodeURIComponent(actor)}&q=${encodeURIComponent(query)}`);
+                if (!res.ok) {
+                    throw new Error(`خطای دریافت نتایج: ${res.status}`);
+                }
+                const data = await res.json();
+                const clans = data?.data?.result || [];
+
+                if (countBadge) countBadge.innerText = `${clans.length} کلن یافت شد`;
+
+                if (!resultsContainer) return;
+
+                if (!Array.isArray(clans) || clans.length === 0) {
+                    resultsContainer.innerHTML = `
+                        <div class="col-span-full bg-zinc-950/80 border border-zinc-800 rounded-xl p-8 text-center text-zinc-400 space-y-2">
+                            <span class="text-3xl block">🔍</span>
+                            <p class="font-medium text-xs">هیچ کلنی با این مشخصات یافت نشد.</p>
+                            <p class="text-[11px] text-zinc-500">می‌توانید عبارت جستجو را پاک کنید یا از فرم زیر یک کلن جدید بسازید.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                resultsContainer.innerHTML = clans.map(c => {
+                    const isMyClan = currentClanData && (currentClanData._id === c._id || currentClanData.tag === c.tag);
+                    const isOpen = c.join_type === 'open';
+
+                    return `
+                        <div class="bg-zinc-950 border ${isMyClan ? 'border-amber-500/50 bg-amber-950/10' : 'border-zinc-800 hover:border-zinc-700'} p-4 rounded-xl flex flex-col justify-between space-y-3 transition group">
+                            <div>
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xl">
+                                            🛡️
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-sm text-white group-hover:text-amber-400 transition">${escapeHtml(c.name || 'بدون نام')}</h4>
+                                            <span class="text-[11px] text-amber-400 font-mono font-semibold">${escapeHtml(c.tag || '#TAG')}</span>
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] px-2 py-0.5 rounded border ${isOpen ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'}">
+                                        ${isOpen ? 'عضویت آزاد' : 'با تایید'}
+                                    </span>
+                                </div>
+
+                                <p class="text-[11px] text-zinc-400 mt-2 line-clamp-2 min-h-[32px]">
+                                    ${escapeHtml(c.description || 'بدون توضیحات')}
+                                </p>
+
+                                <div class="grid grid-cols-3 gap-1.5 mt-3 text-center text-[10px]">
+                                    <div class="bg-zinc-900 border border-zinc-800/80 p-1.5 rounded">
+                                        <span class="text-zinc-500 block">اعضا</span>
+                                        <span class="font-bold text-zinc-200">${c.member_count || 1}/${c.max_members || 50}</span>
+                                    </div>
+                                    <div class="bg-zinc-900 border border-zinc-800/80 p-1.5 rounded">
+                                        <span class="text-zinc-500 block">کاپ کلن</span>
+                                        <span class="font-bold text-amber-400">${(c.clan_score || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div class="bg-zinc-900 border border-zinc-800/80 p-1.5 rounded">
+                                        <span class="text-zinc-500 block">حداقل کاپ</span>
+                                        <span class="font-bold text-zinc-300">${(c.min_score || 0).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Button -->
+                            <div class="pt-2 border-t border-zinc-800/60">
+                                ${isMyClan ? `
+                                    <button disabled class="w-full bg-zinc-800 text-amber-400 font-semibold text-xs py-2 rounded-lg cursor-not-allowed border border-amber-500/30 flex items-center justify-center gap-1.5">
+                                        <span>✔️</span> عضو فعلی این کلن هستید
+                                    </button>
+                                ` : `
+                                    <button onclick="joinSelectedClan('${c._id}', '${escapeHtml(c.name)}', '${c.join_type}')"
+                                            class="w-full ${isOpen ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-blue-600 hover:bg-blue-500'} text-white font-medium text-xs py-2 rounded-lg transition flex items-center justify-center gap-1.5 shadow">
+                                        <span>➕</span> عضویت در این کلن (Select & Join)
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error("Error searching clans:", err);
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = `
+                        <div class="col-span-full text-center py-6 text-rose-400 text-xs">
+                            خطا در دریافت لیست کلن‌ها: ${err.message}
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        async function joinSelectedClan(clanId, clanName, joinType) {
+            const actor = document.getElementById('clan-active-actor')?.value || 'akbari';
+
+            if (currentClanData && currentClanData._id) {
+                const confirmed = confirm(
+                    `شما در حال حاضر عضو کلن «${currentClanData.name}» هستید.\nبرای عضویت در کلن «${clanName}»، ابتدا باید از کلن فعلی خارج شوید.\n\nآیا مایلید از کلن فعلی خارج شده و به کلن «${clanName}» ملحق شوید؟`
+                );
+                if (!confirmed) return;
+
+                // Leave first
+                try {
+                    showToast("در حال خروج از کلن فعلی...", "info");
+                    const leaveRes = await fetch('/api/clans/leave', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ actor_spec: actor })
+                    });
+                    const leaveData = await leaveRes.json();
+                    if (!leaveRes.ok || leaveData.ok === false) {
+                        const errMsg = leaveData?.data?.detail || leaveData?.detail || "خطا در خروج از کلن قبلی";
+                        showToast(errMsg, "error");
+                        return;
+                    }
+                } catch (err) {
+                    showToast("خطا در خروج از کلن: " + err.message, "error");
+                    return;
+                }
+            }
+
+            try {
+                showToast(`در حال ارسال درخواست عضویت در کلن «${clanName}»...`, "info");
+                const res = await fetch('/api/clans/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        actor_spec: actor,
+                        clan_id: clanId,
+                        message: "درخواست عضویت از پنل مدیریت ربات"
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok || data.ok === false) {
+                    const detail = data?.data?.detail || data?.detail || `خطای سرور: ${res.status}`;
+                    showToast(detail, "error");
+                    return;
+                }
+
+                const resultStatus = data?.data?.result?.status || 'joined';
+                if (resultStatus === 'joined') {
+                    showToast(`با موفقیت به کلن «${clanName}» ملحق شدید! 🎉`, "success");
+                } else if (resultStatus === 'requested') {
+                    showToast(`درخواست عضویت در کلن «${clanName}» ارسال شد (نیازمند تایید رهبر کلن).`, "info");
+                } else {
+                    showToast(`عملیات عضویت انجام شد: ${resultStatus}`, "success");
+                }
+
+                await refreshClanView();
+
+            } catch (err) {
+                console.error("Error joining clan:", err);
+                showToast("خطا در عضویت در کلن: " + err.message, "error");
+            }
+        }
+
+        async function leaveCurrentClan() {
+            const actor = document.getElementById('clan-active-actor')?.value || 'akbari';
+            const clanName = currentClanData?.name || 'کلن فعلی';
+
+            const confirmed = confirm(`آیا از خروج از کلن «${clanName}» اطمینان دارید؟`);
+            if (!confirmed) return;
+
+            try {
+                showToast("در حال خروج از کلن...", "info");
+                const res = await fetch('/api/clans/leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ actor_spec: actor })
+                });
+
+                const data = await res.json();
+                if (!res.ok || data.ok === false) {
+                    const detail = data?.data?.detail || data?.detail || `خطای سرور: ${res.status}`;
+                    showToast(detail, "error");
+                    return;
+                }
+
+                showToast(`با موفقیت از کلن «${clanName}» خارج شدید 👋`, "success");
+                await refreshClanView();
+
+            } catch (err) {
+                console.error("Error leaving clan:", err);
+                showToast("خطا در خروج از کلن: " + err.message, "error");
+            }
+        }
+
+        async function createNewClanUI() {
+            const actor = document.getElementById('clan-active-actor')?.value || 'akbari';
+            const name = document.getElementById('clan-new-name')?.value.trim();
+            const tag = document.getElementById('clan-new-tag')?.value.trim();
+            const joinType = document.getElementById('clan-new-jointype')?.value || 'open';
+            const desc = document.getElementById('clan-new-desc')?.value.trim();
+
+            if (!name || !tag) {
+                showToast("نام و تگ کلن الزامی است.", "error");
+                return;
+            }
+
+            try {
+                showToast(`در حال ساخت کلن «${name}»...`, "info");
+                const res = await fetch('/api/clans/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        actor_spec: actor,
+                        name: name,
+                        tag: tag,
+                        emblem_id: 1,
+                        description: desc,
+                        join_type: joinType
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok || data.ok === false) {
+                    const detail = data?.data?.detail || data?.detail || `خطای سرور: ${res.status}`;
+                    showToast(detail, "error");
+                    return;
+                }
+
+                showToast(`کلن «${name}» با موفقیت ساخته شد و شما رهبر آن شدید! 👑`, "success");
+                document.getElementById('clan-create-accordion').classList.add('hidden');
+                await refreshClanView();
+
+            } catch (err) {
+                console.error("Error creating clan:", err);
+                showToast("خطا در ساخت کلن: " + err.message, "error");
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // ---------------------------------------------------------------------
